@@ -90,14 +90,26 @@ market open/close bells → ticker + banner flash, with a ◎ FOCUS auto-zoom), 
 
 ## Public traffic cameras (snapshot `img` feeds)
 
-Feeds now support `img` (a JPEG snapshot URL) in addition to `yt`/`hls`. Snapshot cams display as
-an auto-refreshing image and work **from any origin — no CORS or hosting needed**, which makes
-public government DOT cameras trivial to add. To pull hundreds of live California cameras, serve
-`src/` and add one line before `</body>` in `index.html` (or load it however the host app injects modules):
+Feeds support `img` (a JPEG snapshot URL) in addition to `yt`/`hls`. Snapshot cams display as an
+auto-refreshing image and work **from any origin — no CORS, no key, no hosting needed**, which makes
+public government DOT cameras trivial to add.
+
+`modules/dot-cameras.js` is **wired in by default** (loaded at the bottom of `index.html`) and lights
+up **hundreds of genuinely-live official cameras** on first load:
+
+- **Caltrans** (California, USA) — `cwwp2.dot.ca.gov`, 8 districts (~400 highway cams)
+- **TfL JamCams** (London, UK) — `api.tfl.gov.uk` (~160 of ~880 London cams)
+
+Both are keyless government open-data endpoints that send `Access-Control-Allow-Origin: *`, so they
+load straight from the browser. Add more the same way — a loader just needs to end in
+`SENTINEL.addFeeds([{ id, loc, country, lat, lon, img|hls }])`:
 
 ```html
+<!-- already present near the end of index.html -->
 <script src="modules/dot-cameras.js"></script>
 ```
 
-Only use cameras that agencies publish for public consumption (official DOT/511/highway APIs).
-This project does not access private, unsecured, or credential-bypassed cameras.
+Only use cameras that agencies publish for public consumption (official DOT/511/highway APIs). This
+project does not access private, unsecured, or credential-bypassed cameras. If a good source needs an
+API key, route it through a same-origin proxy (see `server/market-proxy.js`) so the key never reaches
+the browser.
