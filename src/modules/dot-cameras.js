@@ -89,10 +89,36 @@
       .catch(function () { /* TfL offline — skip */ });
   }
 
+  // ---------- Optional: same-origin proxy for KEY-GATED official sources ----------
+  // Set window.SENTINEL_CAMS_PROXY to a same-origin endpoint that returns
+  // [{ id, loc, country, lat, lon, img }] from key-gated providers (WSDOT / 511NY / Windy).
+  // The keys stay SERVER-SIDE behind that endpoint — never in the browser. Inert if unset
+  // (the default for the standalone static app), so the keyless cams above still load.
+  function loadProxy() {
+    var u = window.SENTINEL_CAMS_PROXY;
+    if (!u) return;
+    fetch(u, { cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (arr) {
+        if (!Array.isArray(arr) || !arr.length) return;
+        var out = [];
+        arr.forEach(function (c) {
+          var lat = parseFloat(c.lat), lon = parseFloat(c.lon);
+          if (!lat || !lon || !(c.img || c.hls)) return;
+          out.push({ id: String(c.id || 'CAM').toUpperCase().slice(0, 30),
+                     loc: String(c.loc || ''), country: c.country || '—',
+                     lat: lat, lon: lon, img: c.img || undefined, hls: c.img ? undefined : c.hls });
+        });
+        push(out);
+      })
+      .catch(function () { /* no proxy / offline — keyless cams still load */ });
+  }
+
   function boot() {
     if (!window.SENTINEL || !window.SENTINEL.addFeeds) return setTimeout(boot, 300);
     CT_DISTRICTS.forEach(loadCaltrans);
     loadTfL();
+    loadProxy();
   }
   boot();
 })();

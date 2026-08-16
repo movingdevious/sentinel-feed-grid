@@ -84,7 +84,8 @@ Proprietary — all rights reserved. Extend it without forking core via the runt
 `npm run serve` to host `src/` locally.
 
 New situational-awareness layers: **Weather alerts** (NWS active severe/extreme, live), **Emergency
-radio** (global ATC + US police/fire/marine/NOAA), an **incidents engine** (M≥5 quakes, NWS alerts,
+radio** (verified-live ATC + SomaFM play in the dock; other agency feeds click through to their
+official player, and a dead/silent feed reports OFFLINE instead of faking playback), an **incidents engine** (M≥5 quakes, NWS alerts,
 market open/close bells → ticker + banner flash, with a ◎ FOCUS auto-zoom), and an optional
 **portfolio** readout (Alpaca/Schwab/Coinbase via the proxy).
 
@@ -111,5 +112,7 @@ load straight from the browser. Add more the same way — a loader just needs to
 
 Only use cameras that agencies publish for public consumption (official DOT/511/highway APIs). This
 project does not access private, unsecured, or credential-bypassed cameras. If a good source needs an
-API key, route it through a same-origin proxy (see `server/market-proxy.js`) so the key never reaches
-the browser.
+API key, route it through a same-origin proxy so the key never reaches the browser: set
+`window.SENTINEL_CAMS_PROXY` to an endpoint returning the same `[{id,loc,country,lat,lon,img}]` array
+(extend the bundled `server/market-proxy.js` with a `/cams` route that holds the key server-side). The
+`dot-cameras.js` loader picks it up automatically, and stays inert when the variable is unset.

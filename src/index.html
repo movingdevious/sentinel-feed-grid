@@ -586,37 +586,39 @@
   Lsdr.count=Lsdr.markers.length;
 
   // ===================== EMERGENCY RADIO (ATC + public-safety scanners) =====================
-  // LiveATC direct mounts play in <audio> from the viewer's browser (mounts are best-effort — if
-  // one is silent, use OPEN FEED ↗ to its page). Public police/fire (Broadcastify) is largely
-  // US and gated, so those are click-through. the host app can refresh mounts via the manifest.
+  // Only mounts VERIFIED live carry `audio:` and play in the radio dock (LiveATC sends CORS *).
+  // LiveATC feeds are volunteer-run and rotate, so playRadio() shows an OFFLINE state rather than
+  // faking playback, and every ATC marker keeps an OPEN PLAYER ↗ link to its LiveATC page. Public
+  // police/fire/marine (Broadcastify) is gated → click-through. Re-verify mounts periodically.
   const AT='https://d.liveatc.net/', LA='https://www.liveatc.net/search/?icao=', BF='https://www.broadcastify.com/search/?q=';
   const EMERGENCY=[
-    // — US ATC towers (agency voice comms) —
+    // — US ATC towers — VERIFIED-LIVE mounts (play in the radio dock) —
     {id:'JFK TOWER',agency:'New York · FAA ATC',lat:40.64,lon:-73.78,audio:AT+'kjfk_twr',url:LA+'KJFK'},
     {id:'LAGUARDIA TWR',agency:'New York · FAA ATC',lat:40.777,lon:-73.87,audio:AT+'klga_twr',url:LA+'KLGA'},
     {id:'NEWARK TWR',agency:'Newark · FAA ATC',lat:40.69,lon:-74.17,audio:AT+'kewr_twr',url:LA+'KEWR'},
     {id:'LAX TOWER',agency:'Los Angeles · FAA ATC',lat:33.94,lon:-118.41,audio:AT+'klax_twr',url:LA+'KLAX'},
-    {id:'BOSTON TWR',agency:'Boston Logan · FAA ATC',lat:42.36,lon:-71.01,audio:AT+'kbos_twr',url:LA+'KBOS'},
     {id:'ATLANTA TWR',agency:'Atlanta · FAA ATC',lat:33.64,lon:-84.43,audio:AT+'katl_twr',url:LA+'KATL'},
-    {id:"O'HARE TWR",agency:'Chicago · FAA ATC',lat:41.98,lon:-87.90,audio:AT+'kord_twr',url:LA+'KORD'},
     {id:'SFO TOWER',agency:'San Francisco · FAA ATC',lat:37.62,lon:-122.38,audio:AT+'ksfo_twr',url:LA+'KSFO'},
-    {id:'MIAMI TWR',agency:'Miami · FAA ATC',lat:25.79,lon:-80.29,audio:AT+'kmia_twr',url:LA+'KMIA'},
-    {id:'LAS VEGAS TWR',agency:'Las Vegas · FAA ATC',lat:36.08,lon:-115.15,audio:AT+'klas_twr',url:LA+'KLAS'},
-    {id:'SEATTLE TWR',agency:'Seattle · FAA ATC',lat:47.45,lon:-122.31,audio:AT+'ksea_twr',url:LA+'KSEA'},
-    {id:'DFW TOWER',agency:'Dallas–Fort Worth · FAA ATC',lat:32.90,lon:-97.04,audio:AT+'kdfw_twr',url:LA+'KDFW'},
-    {id:'DENVER TWR',agency:'Denver · FAA ATC',lat:39.86,lon:-104.67,audio:AT+'kden_twr',url:LA+'KDEN'},
-    {id:'PHOENIX TWR',agency:'Phoenix · FAA ATC',lat:33.43,lon:-112.01,audio:AT+'kphx_twr',url:LA+'KPHX'},
-    {id:'REAGAN TWR',agency:'Washington DCA · FAA ATC',lat:38.85,lon:-77.04,audio:AT+'kdca_twr',url:LA+'KDCA'},
-    {id:'PHILLY TWR',agency:'Philadelphia · FAA ATC',lat:39.87,lon:-75.24,audio:AT+'kphl_twr',url:LA+'KPHL'},
-    // — International ATC —
-    {id:'TORONTO TWR',agency:'Toronto Pearson · NAV CANADA',lat:43.68,lon:-79.63,audio:AT+'cyyz',url:LA+'CYYZ'},
-    {id:'VANCOUVER TWR',agency:'Vancouver · NAV CANADA',lat:49.19,lon:-123.18,audio:AT+'cyvr',url:LA+'CYVR'},
-    {id:'SCHIPHOL TWR',agency:'Amsterdam · LVNL',lat:52.31,lon:4.76,audio:AT+'eham',url:LA+'EHAM'},
-    {id:'SYDNEY TWR',agency:'Sydney · Airservices AU',lat:-33.95,lon:151.18,audio:AT+'yssy_twr',url:LA+'YSSY'},
-    {id:'HANEDA TWR',agency:'Tokyo · JCAB',lat:35.55,lon:139.78,audio:AT+'rjtt',url:LA+'RJTT'},
-    {id:'HONG KONG APP',agency:'Hong Kong · CAD',lat:22.31,lon:113.91,audio:AT+'vhhh',url:LA+'VHHH'},
-    {id:'AUCKLAND TWR',agency:'Auckland · Airways NZ',lat:-37.01,lon:174.79,audio:AT+'nzaa',url:LA+'NZAA'},
-    {id:'DUBLIN TWR',agency:'Dublin · IAA',lat:53.42,lon:-6.27,audio:AT+'eidw',url:LA+'EIDW'},
+    {id:'REAGAN TWR',agency:'Washington DCA · FAA ATC',lat:38.85,lon:-77.04,audio:AT+'kdca',url:LA+'KDCA'},
+    {id:'HANEDA APP',agency:'Tokyo Haneda · JCAB',lat:35.55,lon:139.78,audio:AT+'rjtt_app',url:LA+'RJTT'},
+    // — More ATC — LiveATC mount currently down/renamed → OPEN PLAYER ↗ to pick a live feed —
+    {id:'BOSTON TWR',agency:'Boston Logan · FAA ATC',lat:42.36,lon:-71.01,url:LA+'KBOS'},
+    {id:"O'HARE TWR",agency:'Chicago · FAA ATC',lat:41.98,lon:-87.90,url:LA+'KORD'},
+    {id:'MIAMI TWR',agency:'Miami · FAA ATC',lat:25.79,lon:-80.29,url:LA+'KMIA'},
+    {id:'LAS VEGAS TWR',agency:'Las Vegas · FAA ATC',lat:36.08,lon:-115.15,url:LA+'KLAS'},
+    {id:'SEATTLE TWR',agency:'Seattle · FAA ATC',lat:47.45,lon:-122.31,url:LA+'KSEA'},
+    {id:'DFW TOWER',agency:'Dallas–Fort Worth · FAA ATC',lat:32.90,lon:-97.04,url:LA+'KDFW'},
+    {id:'DENVER TWR',agency:'Denver · FAA ATC',lat:39.86,lon:-104.67,url:LA+'KDEN'},
+    {id:'PHOENIX TWR',agency:'Phoenix · FAA ATC',lat:33.43,lon:-112.01,url:LA+'KPHX'},
+    {id:'PHILLY TWR',agency:'Philadelphia · FAA ATC',lat:39.87,lon:-75.24,url:LA+'KPHL'},
+    // — International ATC — OPEN PLAYER ↗ (LiveATC page) —
+    {id:'TORONTO TWR',agency:'Toronto Pearson · NAV CANADA',lat:43.68,lon:-79.63,url:LA+'CYYZ'},
+    {id:'VANCOUVER TWR',agency:'Vancouver · NAV CANADA',lat:49.19,lon:-123.18,url:LA+'CYVR'},
+    {id:'SCHIPHOL TWR',agency:'Amsterdam · LVNL',lat:52.31,lon:4.76,url:LA+'EHAM'},
+    {id:'SYDNEY TWR',agency:'Sydney · Airservices AU',lat:-33.95,lon:151.18,url:LA+'YSSY'},
+    {id:'HONG KONG APP',agency:'Hong Kong · CAD',lat:22.31,lon:113.91,url:LA+'VHHH'},
+    {id:'AUCKLAND TWR',agency:'Auckland · Airways NZ',lat:-37.01,lon:174.79,url:LA+'NZAA'},
+    {id:'DUBLIN TWR',agency:'Dublin · IAA',lat:53.42,lon:-6.27,url:LA+'EIDW'},
     // — US public-safety scanners (Broadcastify · police/fire/EMS · click-through) —
     {id:'NYPD / FDNY',agency:'New York · police/fire scanner',lat:40.71,lon:-74.01,url:BF+'New%20York%20City'},
     {id:'LAPD / LAFD',agency:'Los Angeles · police/fire scanner',lat:34.05,lon:-118.24,url:BF+'Los%20Angeles'},
@@ -637,7 +639,7 @@
     {id:'USCG NEW ORLEANS',agency:'Lower Mississippi · Coast Guard / marine',lat:29.95,lon:-89.95,url:BF+'Coast%20Guard%20New%20Orleans'}
   ];
   EMERGENCY.forEach(e=>{const d=addMarker(Lemg,e.lat,e.lon,0,.028,{id:e.id,loc:e.agency,type:'EMG',
-    src:e.audio?'LiveATC net':'Broadcastify scanner',url:e.url,audio:e.audio,lat:e.lat,lon:e.lon,sig:78},true);
+    src:e.audio?'LiveATC · live':(/liveatc/.test(e.url||'')?'LiveATC ↗':'Broadcastify ↗'),url:e.url,audio:e.audio,lat:e.lat,lon:e.lon,sig:78},true);
     pulseRing(Lemg,d._pos,.2);});
   Lemg.count=EMERGENCY.length;
 
@@ -879,7 +881,7 @@
     else if(t.type==='CAM')ex='live public cam';
     else if(t.type==='MKT'){const s=exStatus(t.mkt);ex=(s.open?'● OPEN':'○ CLOSED')+' · '+s.local+' local';}
     else if(t.type==='CHOKE')ex=t.note||'strategic waterway';
-    else if(t.type==='EMG')ex=t.audio?'live audio · click to listen':'scanner · OPEN FEED ↗';
+    else if(t.type==='EMG')ex=t.audio?'▶ live audio · click to listen':'opens official player ↗';
     else if(t.type==='ALERT')ex=(t.headline||t.src||'weather alert').slice(0,58);
     $('dExtra').textContent=ex;$('dSrc').textContent=t.src||'—';
     $('dSig').style.width=(t.sig||60)+'%';
@@ -931,8 +933,10 @@
   function markStn(url){document.querySelectorAll('.stn').forEach(e=>e.classList.toggle('play',e.dataset.url===url));}
   function playRadio(st){
     if(curStation===st.url&&!audio.paused){audio.pause();$('npname').textContent='— PAUSED —';markStn(null);return;}
-    try{audio.src=st.url;audio.volume=0.9;audio.play().catch(()=>{});}catch(e){}
     curStation=st.url;$('npname').textContent='▶ '+st.name;$('npname').style.color='var(--amber)';markStn(st.url);
+    const offline=()=>{if(curStation===st.url){$('npname').textContent='✕ '+st.name+' — FEED OFFLINE';$('npname').style.color='var(--red)';markStn(null);}};
+    audio.onerror=offline;
+    try{audio.src=st.url;audio.volume=0.9;audio.play().catch(offline);}catch(e){offline();}
   }
   const CCN={USA:'united states usa america',JPN:'japan',IRL:'ireland',GBR:'united kingdom uk britain england',
     CHE:'switzerland',NLD:'netherlands holland',CZE:'czech czechia',ALB:'albania',ESP:'spain canary',TWN:'taiwan',
