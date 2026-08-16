@@ -1,0 +1,13 @@
+# One-step static hosting for the feed grid.
+# Netlify: connect this repo (or drag the /src folder onto app.netlify.com/drop).
+# Publishes /src as the site root so index.html + feeds.json are served over https,
+# which is what makes the YouTube tiles play inline.
+[build]
+  publish = "src"
+  command = ""
+
+[[headers]]
+  for = "/feeds.json"
+  [headers.values]
+    Cache-Control = "no-cache"
+    Access-Control-Allow-Origin = "*"

@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "name": "Maritime Chokepoints",
+  "_comment": "Cams near strategic waterways. The built-in CHOKEPOINTS layer already marks the 10 straits/canals; add camera ids here to overlay live views. Replace the placeholder 'yt' values with current worldcams.tv / geowebcams ids for Gibraltar, Bosphorus (Istanbul), Panama Canal, Dover, etc.",
+  "cams": [
+    { "id": "BOSPHORUS — ISTANBUL", "loc": "Istanbul", "country": "TUR", "lat": 41.02, "lon": 28.97, "yt": "REPLACE_WITH_ID" },
+    { "id": "GIBRALTAR", "loc": "Gibraltar", "country": "GIB", "lat": 36.14, "lon": -5.35, "yt": "REPLACE_WITH_ID" },
+    { "id": "PANAMA CANAL", "loc": "Panama City", "country": "PAN", "lat": 8.98, "lon": -79.52, "yt": "REPLACE_WITH_ID" }
+  ]
+}

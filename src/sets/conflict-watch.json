@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "name": "Conflict / Border Watch",
+  "_comment": "Template for a geopolitical set — capitals, borders, and strategic locations. Public cams in active conflict zones are rare/ephemeral; populate with what is available (border towns, capital squares, port cities) and let the host app refresh ids. Each entry needs lat/lon + a valid yt or hls. Swap in via ?set=sets/conflict-watch.json",
+  "cams": [
+    { "id": "CAPITAL SQUARE — EXAMPLE", "loc": "City", "country": "ISO3", "lat": 0.0, "lon": 0.0, "yt": "REPLACE_WITH_ID" },
+    { "id": "BORDER CROSSING — EXAMPLE", "loc": "City", "country": "ISO3", "lat": 0.0, "lon": 0.0, "hls": "https://host/stream/master.m3u8" }
+  ]
+}

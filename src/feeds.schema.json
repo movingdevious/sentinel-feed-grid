@@ -1,0 +1,35 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://sentinel/feeds.schema.json",
+  "title": "SENTINEL feed manifest",
+  "type": "object",
+  "required": ["cams"],
+  "properties": {
+    "version": { "type": "integer" },
+    "cams": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/feed" }
+    }
+  },
+  "definitions": {
+    "feed": {
+      "type": "object",
+      "required": ["id", "lat", "lon"],
+      "properties": {
+        "id": { "type": "string", "description": "Display label" },
+        "loc": { "type": "string", "description": "City / place" },
+        "country": { "type": "string", "description": "ISO-3166 alpha-3 code (used for search)" },
+        "lat": { "type": "number", "minimum": -90, "maximum": 90 },
+        "lon": { "type": "number", "minimum": -180, "maximum": 180 },
+        "yt": { "type": "string", "description": "YouTube video id (11 chars). Plays inline only when the page is served over http(s)." },
+        "hls": { "type": "string", "description": "Direct .m3u8 stream URL. Plays inline from any origin (needs open CORS)." },
+        "img": { "type": "string", "description": "JPEG snapshot URL (e.g. a public DOT traffic cam). Displayed as an auto-refreshing image; works from any origin, no CORS/hosting needed." }
+      },
+      "oneOf": [
+        { "required": ["yt"] },
+        { "required": ["hls"] },
+        { "required": ["img"] }
+      ]
+    }
+  }
+}

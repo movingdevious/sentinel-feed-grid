@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "name": "Financial Centers",
+  "_comment": "Webcams in/around major exchange cities. Pairs with the built-in MARKETS layer (16 exchanges + live open/closed). Swap in via the SET picker or ?set=sets/financial-centers.json",
+  "cams": [
+    { "id": "NYSE DISTRICT — TIMES SQ", "loc": "New York", "country": "USA", "lat": 40.758, "lon": -73.985, "yt": "Q0uLV52xGZE" },
+    { "id": "NYC — BRYANT PARK", "loc": "New York", "country": "USA", "lat": 40.754, "lon": -73.984, "yt": "X7pAb0qjvf0" },
+    { "id": "CITY OF LONDON", "loc": "London", "country": "GBR", "lat": 51.507, "lon": -0.087, "yt": "krFW8iEquJs" },
+    { "id": "TOKYO — SHIBUYA", "loc": "Tokyo", "country": "JPN", "lat": 35.659, "lon": 139.700, "yt": "dfVK7ld38Ys" },
+    { "id": "TOKYO — KABUKICHO", "loc": "Tokyo", "country": "JPN", "lat": 35.694, "lon": 139.702, "yt": "DjdUEyjx8GM" },
+    { "id": "AMSTERDAM — DAM SQ", "loc": "Amsterdam", "country": "NLD", "lat": 52.373, "lon": 4.893, "yt": "Gd9d4q6WvUY" },
+    { "id": "SAN FRANCISCO", "loc": "San Francisco", "country": "USA", "lat": 37.762, "lon": -122.435, "yt": "4BaKzO23EtU" }
+  ]
+}

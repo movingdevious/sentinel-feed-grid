@@ -1,0 +1,9 @@
+{
+  "$schema": "./feeds.schema.json",
+  "_comment": "SENTINEL mesh manifest. index.html ships ~41 built-in cams; anything added here is merged on top at runtime (deduped by yt/hls id). This is the file the host app writes to. Each entry needs lat + lon and either 'yt' (YouTube video id) or 'hls' (.m3u8 url). Served over http(s) so the browser can fetch it (file:// blocks local fetch).",
+  "version": 1,
+  "cams": [
+    { "id": "EXAMPLE — YOUTUBE CAM", "loc": "City", "country": "ISO3", "lat": 0.0, "lon": 0.0, "yt": "REPLACE_WITH_11CHAR_ID" },
+    { "id": "EXAMPLE — HLS CAM", "loc": "City", "country": "ISO3", "lat": 0.0, "lon": 0.0, "hls": "https://host/stream/master.m3u8" }
+  ]
+}

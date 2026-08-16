@@ -1,0 +1,18 @@
+{
+  "name": "sentinel-feed-grid",
+  "version": "0.4.0",
+  "description": "Open-source global situational-awareness terminal: a 3D globe with live webcams, markets, radio, weather alerts, and a modular layer plugin API.",
+  "license": "MIT",
+  "private": false,
+  "type": "commonjs",
+  "repository": { "type": "git", "url": "https://github.com/movingdevious/sentinel-feed-grid" },
+  "scripts": {
+    "serve": "npx --yes serve src -l 8080",
+    "proxy": "node server/market-proxy.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "node-fetch": "^3.3.2"
+  },
+  "keywords": ["globe", "osint", "situational-awareness", "webcams", "markets", "three.js", "dashboard"]
+}

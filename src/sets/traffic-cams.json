@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "name": "Traffic cameras (public DOT)",
+  "_comment": "Public government traffic cameras as snapshot (img) or HLS feeds. For scale, prefer the runtime loader modules/dot-cameras.js (pulls hundreds of Caltrans cams live). Add other OFFICIAL open camera APIs here or via a module — each entry needs lat/lon and an img (JPEG snapshot URL) or hls (.m3u8). Only use sources published for public consumption.",
+  "cams": [
+    { "id": "EXAMPLE — DOT SNAPSHOT", "loc": "Highway 101", "country": "USA", "lat": 37.79, "lon": -122.40, "img": "https://dot.example.gov/cctv/cam123.jpg" },
+    { "id": "EXAMPLE — DOT HLS", "loc": "Interstate 5", "country": "USA", "lat": 32.72, "lon": -117.16, "hls": "https://dot.example.gov/cctv/cam456/playlist.m3u8" }
+  ]
+}

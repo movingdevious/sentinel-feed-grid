@@ -1,0 +1,1129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SENTINEL // LIVE GLOBAL GRID</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.5.13/hls.min.js"></script>
+<style>
+  :root{
+    --cyan:#38f0e0; --cyan-dim:#1b8f88; --amber:#ffb347; --red:#ff4d5e;
+    --green:#57ff9a; --violet:#b58bff; --bg:#03080c; --panel:rgba(6,18,24,0.6);
+    --line:rgba(56,240,224,0.28); --txt:#bfeef0;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);
+    font-family:'Courier New',ui-monospace,SFMono-Regular,Menlo,monospace;
+    color:var(--txt);cursor:crosshair;-webkit-font-smoothing:antialiased}
+  #scene{position:fixed;inset:0;z-index:1}
+  #hud{position:fixed;inset:0;z-index:5;pointer-events:none;text-transform:uppercase;letter-spacing:1.1px}
+  .panel{position:absolute;background:var(--panel);border:1px solid var(--line);
+    backdrop-filter:blur(3px);box-shadow:0 0 24px rgba(0,0,0,.6),inset 0 0 30px rgba(56,240,224,.05)}
+  .panel::before,.panel::after{content:'';position:absolute;width:10px;height:10px;border:1px solid var(--cyan)}
+  .panel::before{top:-1px;left:-1px;border-right:none;border-bottom:none}
+  .panel::after{bottom:-1px;right:-1px;border-left:none;border-top:none}
+  .ttl{font-size:10px;color:var(--cyan);padding:6px 10px;border-bottom:1px solid var(--line);
+    display:flex;justify-content:space-between;align-items:center;background:rgba(56,240,224,.06)}
+  .ttl b{color:var(--txt);font-weight:400}
+  .blink{animation:bl 1.1s steps(1) infinite}@keyframes bl{50%{opacity:.25}}
+
+  #mktbar{position:fixed;top:22px;left:0;right:0;height:20px;z-index:7;display:flex;align-items:center;
+    background:linear-gradient(90deg,rgba(6,18,24,.96),rgba(6,18,24,.82));border-bottom:1px solid var(--line);
+    font-size:9px;letter-spacing:1px;overflow:hidden;pointer-events:none}
+  #mktbar .mlbl{flex:0 0 auto;padding:0 10px;color:var(--green);border-right:1px solid var(--line);height:100%;
+    display:flex;align-items:center;background:rgba(87,255,154,.08)}
+  #mktwrap{flex:1;overflow:hidden;height:100%;display:flex;align-items:center}
+  #mkttrack{white-space:nowrap;will-change:transform}
+  #mkttrack .mi{margin:0 16px;color:var(--txt)}
+  #mkttrack .mi b{color:#eafffe}
+  #mkttrack .mi .up{color:var(--green)}#mkttrack .mi .dn{color:var(--red)}
+  #exsum{flex:0 0 auto;padding:0 10px;color:var(--amber);border-left:1px solid var(--line);height:100%;
+    display:flex;align-items:center;background:rgba(255,179,71,.08);white-space:nowrap}
+  #filterbar{display:flex;flex-wrap:wrap;gap:3px;margin-bottom:6px}
+  #filterbar button{background:rgba(56,240,224,.06);border:1px solid var(--line);color:var(--cyan-dim);
+    font:inherit;font-size:8px;padding:3px 6px;cursor:pointer;letter-spacing:1px}
+  #filterbar button.on{background:rgba(56,240,224,.18);color:var(--cyan);border-color:var(--cyan)}
+  #setpick{width:100%;background:rgba(0,0,0,.5);color:var(--cyan);border:1px solid var(--line);font:inherit;
+    font-size:9px;padding:5px 6px;letter-spacing:1px;margin-bottom:8px}
+  #banner.flash{animation:bflash .5s steps(1) 4}
+  @keyframes bflash{50%{filter:brightness(2.2) saturate(1.4)}}
+  #banner{position:absolute;top:0;left:0;right:0;height:22px;background:repeating-linear-gradient(
+      45deg,rgba(255,77,94,.85),rgba(255,77,94,.85) 14px,rgba(20,4,6,.9) 14px,rgba(20,4,6,.9) 28px);
+    color:#fff;font-size:10px;display:flex;align-items:center;justify-content:center;letter-spacing:4px;
+    text-shadow:0 0 6px #000;border-bottom:1px solid rgba(255,77,94,.6)}
+
+  #title{top:50px;left:16px;width:320px;padding:12px 14px}
+  #title h1{font-size:16px;color:var(--cyan);letter-spacing:2.5px;text-shadow:0 0 12px var(--cyan-dim)}
+  #title .sub{font-size:9px;color:var(--cyan-dim);margin-top:4px;letter-spacing:1.5px}
+  #title .row{display:flex;gap:12px;margin-top:9px;font-size:9px}
+  #title .row b{color:var(--green)}
+
+  /* layer control */
+  #layers{top:166px;left:16px;width:230px}
+  #layerbody{padding:4px}
+  .lyr{display:flex;align-items:center;gap:8px;padding:6px 8px;font-size:10px;cursor:pointer;
+    pointer-events:auto;border-left:2px solid transparent;transition:.15s}
+  .lyr:hover{background:rgba(56,240,224,.07)}
+  .lyr .sw{width:22px;height:10px;border:1px solid var(--line);position:relative;flex:0 0 auto;border-radius:6px}
+  .lyr .sw i{position:absolute;top:1px;left:1px;width:6px;height:6px;border-radius:50%;background:#2a4a4a;transition:.15s}
+  .lyr.on .sw{border-color:currentColor;box-shadow:0 0 8px currentColor}
+  .lyr.on .sw i{left:13px;background:currentColor;box-shadow:0 0 6px currentColor}
+  .lyr .nm{flex:1;color:var(--txt)} .lyr.on .nm{color:#eafffe}
+  .lyr .ct{font-size:9px;color:var(--cyan-dim);min-width:26px;text-align:right}
+  .led{width:6px;height:6px;border-radius:50%;flex:0 0 auto}
+  .led.live{background:var(--green);box-shadow:0 0 6px var(--green);animation:bl 1.6s steps(1) infinite}
+  .led.sync{background:var(--amber);box-shadow:0 0 6px var(--amber)}
+  .led.off{background:var(--red);box-shadow:0 0 6px var(--red)}
+  .led.static{background:var(--cyan-dim)}
+
+  #status{top:50px;right:16px;width:240px}
+  #status .body{padding:8px 12px;font-size:10px;line-height:1.85}
+  #status .k{color:var(--cyan-dim)} #status .v{float:right;color:var(--txt);letter-spacing:1px}
+  #clock{color:var(--green);text-shadow:0 0 8px rgba(87,255,154,.5)}
+
+  #detail{bottom:58px;right:16px;width:240px}
+  #detail .body{padding:10px 12px;font-size:10px;line-height:1.8}
+  #detail .big{font-size:13px;color:var(--cyan);letter-spacing:1.5px;margin-bottom:2px;word-break:break-word}
+  #detail .k{color:var(--cyan-dim)} #detail .v{float:right;color:var(--txt);max-width:60%;text-align:right;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #openfeed{display:none;margin-top:10px;padding:7px;text-align:center;border:1px solid var(--cyan);
+    color:var(--cyan);font-size:10px;letter-spacing:2px;pointer-events:auto;cursor:pointer;text-decoration:none;
+    background:rgba(56,240,224,.08)}
+  #openfeed:hover{background:rgba(56,240,224,.2)}
+  .bar{height:5px;background:rgba(56,240,224,.12);margin:3px 0 8px;position:relative;overflow:hidden}
+  .bar i{position:absolute;inset:0 auto 0 0;background:var(--cyan);box-shadow:0 0 8px var(--cyan)}
+
+  #ticker{left:16px;right:16px;bottom:16px;height:32px;display:flex;align-items:center;overflow:hidden}
+  #ticker .lbl{flex:0 0 auto;padding:0 12px;height:100%;display:flex;align-items:center;
+    background:rgba(255,77,94,.15);color:var(--red);font-size:9px;border-right:1px solid var(--line)}
+  #ticktrack{white-space:nowrap;will-change:transform;font-size:10px;color:var(--txt)}
+  #ticktrack span{margin:0 26px;color:var(--cyan-dim)} #ticktrack span b{color:var(--amber)}
+
+  #reticle{position:absolute;top:50%;left:50%;width:200px;height:200px;transform:translate(-50%,-50%);opacity:.42}
+  #reticle svg{width:100%;height:100%}
+  #fx{position:fixed;inset:0;z-index:6;pointer-events:none;
+    background:radial-gradient(ellipse at center,transparent 55%,rgba(0,0,0,.72) 100%)}
+  #fx::after{content:'';position:absolute;inset:0;opacity:.12;
+    background:repeating-linear-gradient(0deg,rgba(56,240,224,.5) 0,rgba(56,240,224,.5) 1px,transparent 1px,transparent 3px)}
+  .hint{position:absolute;left:16px;bottom:56px;font-size:8px;color:var(--cyan-dim)}
+  #boot{position:fixed;inset:0;z-index:20;background:var(--bg);display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:14px;transition:opacity .8s;font-size:11px;color:var(--cyan)}
+  #boot .bg{width:260px;height:4px;background:rgba(56,240,224,.15);overflow:hidden}
+  #boot .bg i{display:block;height:100%;width:0;background:var(--cyan);box-shadow:0 0 10px var(--cyan)}
+  @media(max-width:860px){#detail{display:none}#title{width:230px}}
+
+  /* ===== tactical video wall + radio dock ===== */
+  #modebar{position:fixed;top:46px;left:50%;transform:translateX(-50%);z-index:9;display:flex;gap:1px;
+    background:var(--panel);border:1px solid var(--line);pointer-events:auto;box-shadow:0 0 18px rgba(0,0,0,.6)}
+  #modebar button{background:none;border:none;color:var(--cyan-dim);font:inherit;font-size:10px;
+    padding:6px 15px;letter-spacing:2px;cursor:pointer;text-transform:uppercase}
+  #modebar button.act{background:rgba(56,240,224,.15);color:var(--cyan);text-shadow:0 0 8px var(--cyan)}
+  .tile{position:relative;background:#04121a;border:1px solid var(--line);overflow:hidden}
+  .tile iframe,.tile video{position:absolute;inset:0;width:100%;height:100%;border:0;background:#000;z-index:1}
+  .tile .ph{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:5px;color:var(--cyan-dim);font-size:9px;letter-spacing:1px;text-align:center;padding:6px;
+    background:repeating-linear-gradient(0deg,rgba(56,240,224,.05) 0 2px,transparent 2px 4px)}
+  .tile .ph .scan{position:absolute;left:0;right:0;top:0;height:2px;
+    background:linear-gradient(90deg,transparent,var(--cyan),transparent);animation:scanY 3s linear infinite;opacity:.6}
+  @keyframes scanY{0%{top:0}100%{top:100%}}
+  .tile .ol{position:absolute;inset:0;pointer-events:none;z-index:3}
+  .tile .ol .lb{position:absolute;top:5px;left:6px;font-size:9px;color:var(--cyan);letter-spacing:1px;
+    background:rgba(3,8,12,.55);padding:1px 5px;text-shadow:0 0 6px #000}
+  .tile .ol .rec{position:absolute;top:5px;right:6px;font-size:8px;color:var(--red);letter-spacing:1px}
+  .tile .ol .tc{position:absolute;bottom:5px;left:6px;font-size:8px;color:var(--txt);background:rgba(3,8,12,.55);padding:1px 4px}
+  .tile .ol .ytlink{position:absolute;bottom:5px;right:6px;font-size:8px;color:var(--cyan);letter-spacing:1px;
+    pointer-events:auto;text-decoration:none;background:rgba(3,8,12,.7);padding:1px 5px;border:1px solid var(--line)}
+  .tile .ol .ytlink:hover{background:rgba(56,240,224,.2)}
+  .tile .ol .br{position:absolute;width:12px;height:12px;border:1px solid var(--cyan);opacity:.7}
+  .ol .b1{top:2px;left:2px;border-right:0;border-bottom:0}.ol .b2{top:2px;right:2px;border-left:0;border-bottom:0}
+  .ol .b3{bottom:2px;left:2px;border-right:0;border-top:0}.ol .b4{bottom:2px;right:2px;border-left:0;border-top:0}
+
+  #videodock{position:fixed;top:60px;right:16px;width:360px;z-index:8;pointer-events:auto;flex-direction:column;
+    background:var(--panel);border:1px solid var(--line);backdrop-filter:blur(3px);display:none;
+    box-shadow:0 0 24px rgba(0,0,0,.6)}
+  #videodock .bodyv{padding:8px}
+  #featured{position:relative;width:100%;height:196px;margin-bottom:8px}
+  #pastebar{display:flex;gap:4px;margin-bottom:8px}
+  #pastebar input{flex:1;min-width:0;background:rgba(0,0,0,.4);border:1px solid var(--line);color:var(--txt);
+    font:inherit;font-size:9px;padding:5px 6px;letter-spacing:1px}
+  #pastebar button{background:rgba(56,240,224,.12);border:1px solid var(--cyan);color:var(--cyan);font:inherit;
+    font-size:9px;padding:0 10px;cursor:pointer;letter-spacing:1px}
+  #camsearch{width:100%;background:rgba(0,0,0,.4);border:1px solid var(--line);color:var(--txt);font:inherit;
+    font-size:9px;padding:6px 7px;letter-spacing:1px}
+  #camcount{display:block;font-size:8px;color:var(--cyan-dim);margin:5px 0 6px;letter-spacing:1px}
+  #minigrid{display:grid;grid-template-columns:1fr 1fr;gap:6px;max-height:34vh;overflow-y:auto;padding-right:2px}
+  #minigrid .tile{height:74px;cursor:pointer}
+  #wallpager{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:9;display:none;gap:12px;
+    align-items:center;background:var(--panel);border:1px solid var(--line);padding:6px 12px;pointer-events:auto;
+    font-size:10px;box-shadow:0 0 18px rgba(0,0,0,.6)}
+  #wallpager button{background:rgba(56,240,224,.12);border:1px solid var(--cyan);color:var(--cyan);font:inherit;
+    font-size:9px;padding:5px 12px;cursor:pointer;letter-spacing:2px}
+  #wallpager button:hover{background:rgba(56,240,224,.25)}
+  #wallpageinfo{color:var(--txt);letter-spacing:1px;min-width:44px;text-align:center}
+
+  #radiodock{position:fixed;left:16px;bottom:54px;width:270px;z-index:8;pointer-events:auto;
+    background:var(--panel);border:1px solid var(--line);backdrop-filter:blur(3px);display:none;
+    box-shadow:0 0 24px rgba(0,0,0,.6)}
+  #stations{padding:4px;max-height:150px;overflow:auto}
+  .stn{display:flex;align-items:center;gap:8px;padding:6px 8px;font-size:10px;cursor:pointer;border-left:2px solid transparent}
+  .stn:hover{background:rgba(255,179,71,.08);border-left-color:var(--amber)}
+  .stn.play{background:rgba(255,179,71,.15);border-left-color:var(--amber)}
+  .stn .pi{color:var(--amber);flex:0 0 16px;font-size:9px}.stn .nm{flex:1;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .stn .lc{color:var(--cyan-dim);font-size:8px}
+  #nowplaying{display:flex;align-items:center;gap:8px;padding:8px 10px;border-top:1px solid var(--line);font-size:9px}
+  #npname{flex:0 0 auto;max-width:130px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #spectrum{display:flex;align-items:flex-end;gap:2px;height:18px;flex:1}
+  #spectrum i{width:3px;background:var(--amber);box-shadow:0 0 5px var(--amber);height:3px}
+
+  .tile .ph .ytbtn{margin-top:6px;padding:7px 12px;border:1px solid var(--cyan);color:var(--cyan);
+    text-decoration:none;letter-spacing:1px;pointer-events:auto;background:rgba(56,240,224,.1);font-size:9px}
+  .tile .ph .ytbtn:hover{background:rgba(56,240,224,.25)}
+  #featured .ytfallback{position:absolute;left:50%;transform:translateX(-50%);bottom:6px;z-index:4;font-size:8px;
+    color:var(--amber);background:rgba(3,8,12,.75);padding:2px 7px;border:1px solid var(--line);
+    pointer-events:auto;text-decoration:none;letter-spacing:1px}
+  #featured .ytfallback:hover{background:rgba(255,179,71,.2)}
+  #wallgrid{position:fixed;inset:56px 8px 52px 8px;z-index:7;display:none;gap:8px;
+    grid-template-columns:repeat(3,1fr);grid-auto-rows:1fr}
+  #wallgrid .tile{cursor:pointer}
+  .tile img.camimg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000;z-index:1}
+  #featured img.camimg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000}
+</style>
+</head>
+<body>
+<div id="scene"></div>
+
+<div id="boot">
+  <div style="letter-spacing:6px">SENTINEL</div>
+  <div class="bg"><i id="bootbar"></i></div>
+  <div id="bootmsg" style="color:var(--cyan-dim);font-size:9px;letter-spacing:2px">INITIALIZING UPLINK…</div>
+</div>
+
+<div id="hud">
+  <div id="banner">// sentinel // live multi-source intercept grid // open-source feeds // handle with care //</div>
+
+  <div id="mktbar">
+    <div class="mlbl">◤ MARKETS</div>
+    <div id="mktwrap"><div id="mkttrack"></div></div>
+    <div id="exsum">–</div>
+  </div>
+
+  <div class="panel" id="title">
+    <h1>LIVE GLOBAL GRID</h1>
+    <div class="sub">SENTINEL · REAL-TIME OPEN-SOURCE INTERCEPT</div>
+    <div class="row"><span>TRACKS <b id="nTotal">0</b></span><span>UPLINK <b>SECURE</b></span><span>MODE <b>OSINT</b></span></div>
+  </div>
+
+  <div class="panel" id="layers">
+    <div class="ttl">FEED LAYERS <b class="blink" style="color:var(--green)">● LIVE</b></div>
+    <div id="layerbody"></div>
+  </div>
+
+  <div class="panel" id="status">
+    <div class="ttl">SYSTEM STATUS <b id="uptime">00:00:00</b></div>
+    <div class="body">
+      <div><span class="k">UTC</span><span class="v" id="clock">--:--:--</span></div>
+      <div><span class="k">GRID LOCK</span><span class="v" style="color:var(--green)">NOMINAL</span></div>
+      <div><span class="k">ACTIVE TRACKS</span><span class="v" id="mTracks">0</span></div>
+      <div><span class="k">LIVE FEEDS</span><span class="v" id="mLive">0 / 0</span></div>
+      <div><span class="k">LAST SYNC</span><span class="v" id="mSync">—</span></div>
+    </div>
+  </div>
+
+  <div class="panel" id="detail">
+    <div class="ttl">TRACK TELEMETRY <b class="blink">◉ REC</b></div>
+    <div class="body">
+      <div class="big" id="dId">— NO TARGET —</div>
+      <div style="color:var(--cyan-dim);margin-bottom:8px" id="dLoc">select a track on the grid</div>
+      <div><span class="k">CLASS</span><span class="v" id="dType">—</span></div>
+      <div><span class="k">POSITION</span><span class="v" id="dCoord">—</span></div>
+      <div><span class="k">DETAIL</span><span class="v" id="dExtra">—</span></div>
+      <div><span class="k">SOURCE</span><span class="v" id="dSrc">—</span></div>
+      <div class="k" style="margin-top:8px">SIGNAL</div>
+      <div class="bar"><i id="dSig" style="width:0%"></i></div>
+      <a id="openfeed" href="#" target="_blank" rel="noopener">OPEN FEED ↗</a>
+    </div>
+  </div>
+
+  <div class="hint">◄ drag to slew · scroll to zoom · click a track · toggle layers ►</div>
+
+  <div class="panel" id="ticker">
+    <div class="lbl blink">◤ INTERCEPT</div>
+    <div style="flex:1;overflow:hidden"><div id="ticktrack"></div></div>
+  </div>
+
+  <div id="reticle">
+    <svg viewBox="0 0 100 100" fill="none" stroke="#38f0e0" stroke-width="0.5">
+      <circle cx="50" cy="50" r="30" opacity="0.5"/>
+      <circle cx="50" cy="50" r="42" opacity="0.25" stroke-dasharray="2 3"/>
+      <path d="M50 8 v10 M50 82 v10 M8 50 h10 M82 50 h10" opacity="0.7"/>
+      <path d="M50 20 v6 M50 74 v6 M20 50 h6 M74 50 h6"/>
+      <circle cx="50" cy="50" r="1.4" fill="#38f0e0" stroke="none"/>
+    </svg>
+  </div>
+</div>
+<div id="fx"></div>
+
+<div id="modebar">
+  <button data-mode="globe">◍ GLOBE</button>
+  <button data-mode="split" class="act">▣ SPLIT</button>
+  <button data-mode="wall">▦ WALL</button>
+  <button id="focusbtn" title="auto-focus latest incident">◎ FOCUS</button>
+  <button id="randbtn" title="jump to a random camera">◉ RANDOM</button>
+</div>
+
+<div id="videodock">
+  <div class="ttl">TACTICAL VIDEO WALL <b class="blink" style="color:var(--red)">◉ LIVE</b></div>
+  <div class="bodyv">
+    <div id="featured"><div class="ph"><div class="scan"></div><span>SELECT A VIDEO NODE ON THE GLOBE</span></div></div>
+    <div id="pastebar"><input id="pasteurl" placeholder="PASTE YOUTUBE OR .M3U8 URL"><button id="pastego">LOAD</button></div>
+    <select id="setpick" title="feed set">
+      <option value="default">◈ GLOBAL CITIES · built-in</option>
+      <option value="sets/financial-centers.json">◈ FINANCIAL CENTERS</option>
+      <option value="sets/maritime-chokepoints.json">◈ MARITIME CHOKEPOINTS</option>
+      <option value="sets/conflict-watch.json">◈ CONFLICT WATCH</option>
+    </select>
+    <div id="filterbar"></div>
+    <input id="camsearch" placeholder="⌕ SEARCH FEEDS · city / country">
+    <span id="camcount">0 / 0</span>
+    <div id="minigrid"></div>
+  </div>
+</div>
+
+<div id="radiodock">
+  <div class="ttl">RADIO INTERCEPT <b class="blink" style="color:var(--amber)">▲ RF</b></div>
+  <div id="stations"></div>
+  <div id="nowplaying"><span id="npname" style="color:var(--cyan-dim)">— IDLE —</span><div id="spectrum"></div></div>
+</div>
+
+<div id="wallgrid"></div>
+<div id="wallpager"><button id="wallprev">◄ PREV</button><span id="wallpageinfo">1 / 1</span><button id="wallnext">NEXT ►</button></div>
+<audio id="radioaudio" crossorigin="anonymous"></audio>
+
+<script>
+/* ==========================================================================
+   SENTINEL — LIVE GLOBAL GRID  (stylized OSINT visualization)
+   Zero setup. No keys. Pulls only PUBLIC, open feeds at runtime:
+     • Earthquakes .... USGS live GeoJSON              (LIVE)
+     • Aircraft ....... OpenSky Network states         (LIVE, best-effort)
+     • ISS ............ wheretheiss.at                 (LIVE)
+     • Satellites ..... SGP4 propagation (satellite.js)(MODELED, in-browser)
+     • Radio/SDR ...... curated public receivers       (click-through to real)
+     • Webcams ........ curated public live cams        (click-through to real)
+     • Trade flows .... curated bilateral corridors     (illustrative arcs)
+   No private cameras or restricted comms are accessed. See legend LEDs:
+     green=live  amber=syncing  red=offline  dim=static/modeled.
+   ========================================================================== */
+(function(){
+  const $=id=>document.getElementById(id);
+  // the host app hook: allow ?feeds=<url> to override the manifest location
+  try{const _f=new URLSearchParams(location.search).get('feeds');if(_f)window.SENTINEL_FEEDS_URL=_f;}catch(e){}
+  const scene=new THREE.Scene(); scene.fog=new THREE.FogExp2(0x03080c,0.05);
+  const cam=new THREE.PerspectiveCamera(45,innerWidth/innerHeight,0.1,100);
+  const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2)); renderer.setSize(innerWidth,innerHeight);
+  $('scene').appendChild(renderer.domElement);
+  const R=2.0, world=new THREE.Group(); scene.add(world);
+  scene.add(new THREE.AmbientLight(0x223344,1.3));
+  const key=new THREE.DirectionalLight(0x66ccff,1.0); key.position.set(5,3,5); scene.add(key);
+
+  // ---- helpers ----
+  function ll(lat,lon,r){const phi=(90-lat)*Math.PI/180,th=(lon+180)*Math.PI/180;
+    return new THREE.Vector3(-r*Math.sin(phi)*Math.cos(th),r*Math.cos(phi),r*Math.sin(phi)*Math.sin(th));}
+  function hexstr(c){return '#'+new THREE.Color(c).getHexString();}
+  function glowTex(hex){const s=64,cv=document.createElement('canvas');cv.width=cv.height=s;
+    const x=cv.getContext('2d'),col=hexstr(hex),g=x.createRadialGradient(s/2,s/2,0,s/2,s/2,s/2);
+    g.addColorStop(0,col);g.addColorStop(.28,col);g.addColorStop(1,'rgba(0,0,0,0)');
+    x.fillStyle=g;x.beginPath();x.arc(s/2,s/2,s/2,0,7);x.fill();return new THREE.CanvasTexture(cv);}
+  const glowCache={}; function glow(hex){return glowCache[hex]||(glowCache[hex]=glowTex(hex));}
+
+  // ---- stars ----
+  (function(){const g=new THREE.BufferGeometry(),p=[];for(let i=0;i<1300;i++){
+    const r=22+Math.random()*30,t=Math.random()*6.283,ph=Math.acos(2*Math.random()-1);
+    p.push(r*Math.sin(ph)*Math.cos(t),r*Math.sin(ph)*Math.sin(t),r*Math.cos(ph));}
+    g.setAttribute('position',new THREE.Float32BufferAttribute(p,3));
+    scene.add(new THREE.Points(g,new THREE.PointsMaterial({color:0x8fd7ff,size:0.06,transparent:true,opacity:.7})));})();
+
+  // ---- base globe + atmosphere + graticule ----
+  world.add(new THREE.Mesh(new THREE.SphereGeometry(R,64,64),
+    new THREE.MeshPhongMaterial({color:0x04121a,emissive:0x02141a,shininess:6,transparent:true,opacity:.96})));
+  world.add(new THREE.Mesh(new THREE.SphereGeometry(R*1.17,48,48),new THREE.ShaderMaterial({
+    transparent:true,blending:THREE.AdditiveBlending,side:THREE.BackSide,depthWrite:false,
+    uniforms:{c:{value:new THREE.Color(0x2ad8ff)}},
+    vertexShader:`varying vec3 vN;void main(){vN=normalize(normalMatrix*normal);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
+    fragmentShader:`uniform vec3 c;varying vec3 vN;void main(){float i=pow(.72-dot(vN,vec3(0,0,1.)),3.);gl_FragColor=vec4(c,1.)*i;}`})));
+  const gratMat=new THREE.LineBasicMaterial({color:0x38f0e0,transparent:true,opacity:.06});
+  for(let lat=-60;lat<=60;lat+=30){const pts=[];for(let lon=0;lon<=360;lon+=4)pts.push(ll(lat,lon,R*1.003));
+    world.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),gratMat));}
+  for(let lon=0;lon<180;lon+=30){const pts=[];for(let lat=-90;lat<=90;lat+=4)pts.push(ll(lat,lon,R*1.003));
+    world.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),gratMat));}
+
+  // ---- dotted land (sample equirectangular map; fallback = graticule only) ----
+  function buildLand(){
+    const img=new Image(); img.crossOrigin='anonymous';
+    img.onload=()=>{try{
+      const W=320,H=160,cv=document.createElement('canvas');cv.width=W;cv.height=H;
+      const cx=cv.getContext('2d');cx.drawImage(img,0,0,W,H);
+      const d=cx.getImageData(0,0,W,H).data,pos=[];
+      for(let lat=-84;lat<=84;lat+=1.3){const rr=Math.cos(lat*Math.PI/180),lonStep=1.3/Math.max(rr,.08);
+        for(let lon=-180;lon<180;lon+=lonStep){
+          const px=Math.floor((lon+180)/360*W),py=Math.floor((90-lat)/180*H),i=(py*W+px)*4;
+          const r=d[i],g=d[i+1],b=d[i+2];
+          const ocean=(b>70&&b>=r+6&&b>=g-4)||(r+g+b<26); // blue-dominant or no-data
+          if(!ocean){const v=ll(lat+(Math.random()-.5),lon+(Math.random()-.5),R*1.004);pos.push(v.x,v.y,v.z);}
+        }}
+      const gg=new THREE.BufferGeometry();gg.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
+      world.add(new THREE.Points(gg,new THREE.PointsMaterial({color:0x2f9d97,size:0.015,transparent:true,opacity:.30})));
+    }catch(e){/* tainted/canvas fail -> borders still carry the geography */}};
+    img.onerror=()=>{/* borders carry the geography */};
+    img.src='https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg';
+  }
+  buildLand();
+
+  // ---- country borders + coastlines (vector outlines, the primary geography) ----
+  let bordersOn=true, borderSeg=null;
+  function segRing(ring,arr){
+    for(let i=0;i<ring.length-1;i++){
+      const a=ll(ring[i][1],ring[i][0],R*1.006), b=ll(ring[i+1][1],ring[i+1][0],R*1.006);
+      arr.push(a.x,a.y,a.z,b.x,b.y,b.z);
+    }
+  }
+  function drawGeo(fc){
+    const arr=[];
+    (fc.features||[]).forEach(f=>{const g=f.geometry;if(!g)return;
+      const polys=g.type==='Polygon'?[g.coordinates]:(g.type==='MultiPolygon'?g.coordinates:[]);
+      polys.forEach(poly=>poly.forEach(ring=>{if(ring&&ring.length>1)segRing(ring,arr);}));});
+    if(!arr.length)return false;
+    const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(arr,3));
+    borderSeg=new THREE.LineSegments(geo,new THREE.LineBasicMaterial({color:0x5df7e8,transparent:true,
+      opacity:.6,blending:THREE.AdditiveBlending,depthWrite:false}));
+    world.add(borderSeg);
+    // faint under-glow duplicate for a soft neon edge
+    const glow2=new THREE.LineSegments(geo,new THREE.LineBasicMaterial({color:0x38f0e0,transparent:true,
+      opacity:.18,blending:THREE.AdditiveBlending,depthWrite:false}));
+    glow2.scale.setScalar(1.001);world.add(glow2);borderSeg._glow=glow2;
+    return true;
+  }
+  async function buildBorders(){
+    const mirrors=[
+      'https://cdn.jsdelivr.net/gh/nvkelso/natural-earth-vector@master/geojson/ne_110m_admin_0_countries.geojson',
+      'https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_0_countries.geojson',
+      'https://cdn.jsdelivr.net/gh/johan/world.geo.json@master/countries.geo.json'
+    ];
+    for(const u of mirrors){try{
+      const ctrl=new AbortController(),to=setTimeout(()=>ctrl.abort(),9000);
+      const r=await fetch(u,{signal:ctrl.signal,cache:'force-cache'});clearTimeout(to);
+      if(!r.ok)continue;const j=await r.json();
+      if(j&&j.type==='FeatureCollection'&&drawGeo(j))return;
+    }catch(e){/* try next mirror */}}
+  }
+  buildBorders();
+
+  // ================= LAYER SYSTEM =================
+  const raycaster=new THREE.Raycaster(); raycaster.params.Points={threshold:0.05};
+  const LAYERS={};
+  function Layer(key,label,color,ledInit){
+    const g=new THREE.Group(); world.add(g);
+    const L={key,label,color,group:g,markers:[],rings:[],count:0,led:ledInit,on:true};
+    LAYERS[key]=L; return L;
+  }
+  const Lquake=Layer('quake','Earthquakes',0xff4d5e,'sync');
+  const Lair  =Layer('air','Aircraft (ADS-B)',0x38f0e0,'sync');
+  const Lsat  =Layer('sat','Orbital tracks (modeled)',0xb58bff,'static');
+  const Liss  =Layer('iss','ISS',0x57ff9a,'sync');
+  const Lsdr  =Layer('sdr','Radio / SDR',0xffb347,'static');
+  const Lcam  =Layer('cam','Public webcams',0x38f0e0,'static');
+  const Ldeal =Layer('deal','Trade flows',0x57ff9a,'static');
+  const Lmkt  =Layer('mkt','Markets · exchanges',0x57ff9a,'sync');
+  const Lchoke=Layer('choke','Maritime chokepoints',0xffb347,'static');
+  const Lemg  =Layer('emg','Emergency radio',0xff4d5e,'static');
+  const Lalert=Layer('alert','Weather alerts · NWS',0xffb347,'sync');
+
+  const hitTargets=[]; // meshes with userData.track
+  function addMarker(L,lat,lon,alt,size,data,withGlow){
+    const pos=ll(lat,lon,R*(1.01+(alt||0)));
+    const core=new THREE.Mesh(new THREE.SphereGeometry(size,8,8),new THREE.MeshBasicMaterial({color:L.color}));
+    core.position.copy(pos); core.userData.track=data; L.group.add(core); L.markers.push(core); hitTargets.push(core);
+    data._core=core; data._pos=pos; data.layer=L;
+    if(withGlow){const s=new THREE.Sprite(new THREE.SpriteMaterial({map:glow(L.color),color:L.color,
+      transparent:true,blending:THREE.AdditiveBlending,depthWrite:false,opacity:.85}));
+      s.scale.set(size*9,size*9,1);s.position.copy(pos);L.group.add(s);data._spr=s;}
+    return data;
+  }
+  function pulseRing(L,pos,scaleMax){
+    const ring=new THREE.Mesh(new THREE.RingGeometry(.9,1,28),new THREE.MeshBasicMaterial({color:L.color,
+      transparent:true,side:THREE.DoubleSide,blending:THREE.AdditiveBlending,depthWrite:false,opacity:0}));
+    ring.position.copy(pos);ring.lookAt(pos.clone().multiplyScalar(2));ring.userData={max:scaleMax||.22,t:Math.random()};
+    L.group.add(ring);L.rings.push(ring);
+  }
+  function clearLayer(L){L.markers.forEach(m=>{const i=hitTargets.indexOf(m);if(i>=0)hitTargets.splice(i,1);});
+    while(L.group.children.length)L.group.remove(L.group.children[0]);L.markers=[];L.rings=[];L.count=0;}
+
+  // ================= CURATED REAL LAYERS (zero-setup, click-through) =================
+  // Public SDR / WebSDR receivers — click opens the live receiver / world map.
+  const SDR=[
+    ['University of Twente WebSDR','Enschede NL',52.24,6.85,'http://websdr.ewi.utwente.nl:8901/'],
+    ['KiwiSDR World Map','Global directory',48.86,2.35,'http://rx.linkfanel.net/'],
+    ['WebSDR Directory','Global',51.5,-0.12,'http://websdr.org/'],
+    ['KiwiSDR — London','UK',51.51,-0.13,'http://rx.linkfanel.net/'],
+    ['KiwiSDR — New York','US',40.71,-74.0,'http://rx.linkfanel.net/'],
+    ['KiwiSDR — Tokyo','JP',35.68,139.77,'http://rx.linkfanel.net/'],
+    ['KiwiSDR — Sydney','AU',-33.87,151.21,'http://rx.linkfanel.net/'],
+    ['KiwiSDR — São Paulo','BR',-23.55,-46.63,'http://rx.linkfanel.net/'],
+    ['KiwiSDR — Cape Town','ZA',-33.92,18.42,'http://rx.linkfanel.net/'],
+    ['KiwiSDR — Reykjavik','IS',64.15,-21.94,'http://rx.linkfanel.net/'],
+    ['KiwiSDR — Moscow','RU',55.75,37.62,'http://rx.linkfanel.net/'],
+    ['KiwiSDR — Delhi','IN',28.61,77.21,'http://rx.linkfanel.net/'],
+    ['KiwiSDR — Anchorage','US',61.22,-149.9,'http://rx.linkfanel.net/'],
+    ['KiwiSDR — Perth','AU',-31.95,115.86,'http://rx.linkfanel.net/'],
+    ['KiwiSDR — Buenos Aires','AR',-34.6,-58.38,'http://rx.linkfanel.net/'],
+    ['KiwiSDR — Honolulu','US',21.31,-157.86,'http://rx.linkfanel.net/']
+  ];
+  SDR.forEach(s=>{const d=addMarker(Lsdr,s[2],s[3],0,.026,{id:s[0],loc:s[1],type:'SDR',src:'Public SDR network',
+    url:s[4],lat:s[2],lon:s[3],sig:60+Math.random()*35},true);pulseRing(Lsdr,d._pos,.2);});
+  Lsdr.count=SDR.length;
+
+  // Public webcams — click opens the live public cam / portal.
+  const CAMS=[
+    ['Times Square','New York US',40.758,-73.985,'https://www.earthcam.com/usa/newyork/timessquare/'],
+    ['Shibuya Crossing','Tokyo JP',35.659,139.700,'https://www.earthcam.com/world/japan/tokyo/'],
+    ['Abbey Road','London UK',51.532,-0.177,'https://www.abbeyroad.com/crossing'],
+    ["St Mark's Square",'Venice IT',45.434,12.339,'https://www.skylinewebcams.com/en/webcam/italia/veneto/venezia/venezia.html'],
+    ['Yosemite Valley','California US',37.745,-119.593,'https://www.nps.gov/yose/learn/photosmultimedia/webcams.htm'],
+    ['Old Faithful','Yellowstone US',44.46,-110.83,'https://www.nps.gov/yell/learn/photosmultimedia/webcams.htm'],
+    ['Waikiki Beach','Honolulu US',21.276,-157.827,'https://www.earthcam.com/usa/hawaii/waikiki/'],
+    ['Las Vegas Strip','Nevada US',36.11,-115.17,'https://www.earthcam.com/usa/nevada/lasvegas/'],
+    ['Niagara Falls','US/CA',43.08,-79.07,'https://www.earthcam.com/world/canada/niagarafalls/'],
+    ['Dubai Marina','UAE',25.08,55.14,'https://www.skylinewebcams.com/en/webcam/united-arab-emirates.html'],
+    ['Sydney Harbour','AU',-33.857,151.215,'https://www.skylinewebcams.com/en/webcam/australia.html'],
+    ['Copacabana','Rio BR',-22.97,-43.18,'https://www.skylinewebcams.com/en/webcam/brasil.html'],
+    ['Table Mountain','Cape Town ZA',-33.96,18.40,'https://www.skylinewebcams.com/en/webcam/south-africa.html'],
+    ['Windy Webcams','Global directory',60.17,24.94,'https://www.windy.com/-Webcams/webcams']
+  ];
+  CAMS.forEach(c=>{const d=addMarker(Lcam,c[2],c[3],0,.024,{id:c[0],loc:c[1],type:'CAM',src:'Public webcam',
+    url:c[4],lat:c[2],lon:c[3],sig:70+Math.random()*25},true);pulseRing(Lcam,d._pos,.16);});
+  Lcam.count=CAMS.length;
+
+  // Trade-flow arcs (illustrative curated corridors)
+  const CAP={US:[38.9,-77.0],CN:[39.9,116.4],DE:[52.5,13.4],JP:[35.7,139.7],GB:[51.5,-0.1],
+    IN:[28.6,77.2],AE:[24.5,54.4],BR:[-15.8,-47.9],AU:[-35.3,149.1],SA:[24.6,46.7],
+    KR:[37.6,127.0],FR:[48.9,2.4],RU:[55.75,37.6],NG:[9.1,7.5],MX:[19.4,-99.1],SG:[1.35,103.8],ZA:[-25.7,28.2]};
+  const DEALS=[['US','CN'],['US','DE'],['CN','DE'],['JP','US'],['GB','US'],['IN','AE'],['BR','CN'],
+    ['AU','CN'],['SA','IN'],['MX','US'],['KR','US'],['FR','DE'],['RU','CN'],['NG','CN'],['SG','CN'],['US','SG'],['DE','CN'],['IN','US']];
+  const arcs=[];
+  DEALS.forEach(p=>{const a=CAP[p[0]],b=CAP[p[1]];if(!a||!b)return;
+    const va=ll(a[0],a[1],R*1.01),vb=ll(b[0],b[1],R*1.01);
+    const mid=va.clone().add(vb).multiplyScalar(.5).setLength(R*(1.14+va.distanceTo(vb)*.12));
+    const curve=new THREE.QuadraticBezierCurve3(va,mid,vb),pts=curve.getPoints(50);
+    const line=new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),
+      new THREE.LineBasicMaterial({color:Ldeal.color,transparent:true,opacity:.22,blending:THREE.AdditiveBlending}));
+    Ldeal.group.add(line);
+    const pulse=new THREE.Mesh(new THREE.SphereGeometry(.028,6,6),new THREE.MeshBasicMaterial({color:Ldeal.color}));
+    Ldeal.group.add(pulse); arcs.push({curve,pulse,t:Math.random(),speed:.1+Math.random()*.2,pair:p[0]+'↔'+p[1]});});
+  Ldeal.count=DEALS.length;
+
+  // ===== EMBEDDABLE LIVE VIDEO (YouTube 24/7 public cams) — clicking loads them onto the wall =====
+  let VIDEO=[
+    // always-plays-anywhere HLS (no hosting needed)
+    {id:'LIVE TEST SIGNAL',loc:'CDN broadcast',country:'NET',lat:51.51,lon:-0.12,hls:'https://cph-p2p-msl.akamaized.net/hls/live/2000341/test/master.m3u8'},
+    {id:'RELAY LOOP',loc:'standby feed',country:'NET',lat:1.35,lon:103.8,hls:'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8'},
+    // real 24/7 YouTube cams (worldcams.tv / geowebcams) — play inline once hosted
+    {id:'TIMES SQUARE',loc:'New York',country:'USA',lat:40.758,lon:-73.985,yt:'Q0uLV52xGZE'},
+    {id:'NEW ORLEANS',loc:'New Orleans',country:'USA',lat:29.957,lon:-90.065,yt:'QhFYcPBmkcI'},
+    {id:'JFK AIRPORT',loc:'New York',country:'USA',lat:40.64,lon:-73.78,yt:'11INCtK6uiA'},
+    {id:'TAHOE / RENO AIRPORT',loc:'Reno',country:'USA',lat:39.50,lon:-119.77,yt:'VaDbfFG7RhI'},
+    {id:'NASHVILLE HONKY-TONK',loc:'Nashville',country:'USA',lat:36.16,lon:-86.78,yt:'aKDbKLil6Zc'},
+    {id:'KEY WEST',loc:'Key West',country:'USA',lat:24.56,lon:-81.80,yt:'rbMK4p6zUwI'},
+    {id:'SATELLITE BEACH',loc:'Florida',country:'USA',lat:28.18,lon:-80.59,yt:'6B3Dpn1TuNQ'},
+    {id:'HAWAIIAN ISLANDS',loc:'Hawaii',country:'USA',lat:20.80,lon:-156.33,yt:'TZAvviB_o-4'},
+    {id:'TEHACHAPI RAILROAD',loc:'California',country:'USA',lat:35.13,lon:-118.45,yt:'pQHaVrBeZGc'},
+    {id:'ALASKA WILDLIFE',loc:'Alaska',country:'USA',lat:58.42,lon:-135.74,yt:'EwTH5yY7Mks'},
+    {id:'DUBLIN — TEMPLE BAR',loc:'Dublin',country:'IRL',lat:53.345,lon:-6.264,yt:'3nyPER2kzqk'},
+    {id:"ST MICHAEL'S MOUNT",loc:'Cornwall',country:'GBR',lat:50.117,lon:-5.477,yt:'GL_2CrLwSDA'},
+    {id:'LUZERN CHAPEL BRIDGE',loc:'Luzern',country:'CHE',lat:47.05,lon:8.31,yt:'QIt1FaDMnQc'},
+    {id:'HELMOND RAIL CROSSING',loc:'Helmond',country:'NLD',lat:51.48,lon:5.66,yt:'nVcIjMeimqg'},
+    {id:'ÚSTÍ RAILWAY',loc:'Ústí nad Orlicí',country:'CZE',lat:49.97,lon:16.39,yt:'oFLvtPKBXEs'},
+    {id:'VLORA BAY',loc:'Vlora',country:'ALB',lat:40.47,lon:19.49,yt:'jLun451s8-g'},
+    {id:'LANZAROTE AIRPORT',loc:'Lanzarote',country:'ESP',lat:28.95,lon:-13.61,yt:'AAlo3eCPVbk'},
+    {id:'LANZAROTE BEACH',loc:'Costa Teguise',country:'ESP',lat:28.99,lon:-13.50,yt:'BHenVI303P0'},
+    {id:'TENERIFE RESORTS',loc:'Tenerife',country:'ESP',lat:28.05,lon:-16.72,yt:'Zbt2mYksRdo'},
+    {id:'SHIBUYA CROSSING',loc:'Tokyo',country:'JPN',lat:35.659,lon:139.700,yt:'dfVK7ld38Ys'},
+    {id:'KAMIKOCHI BRIDGE',loc:'Nagano',country:'JPN',lat:36.25,lon:137.63,yt:'Iv2VUE_UhRQ'},
+    {id:'DUOLIANG STATION',loc:'Taitung',country:'TWN',lat:22.61,lon:120.94,yt:'UCG1aXVO8H8'},
+    {id:'THAILAND BEACH',loc:'Phuket',country:'THA',lat:7.88,lon:98.30,yt:'3N3ZwIB_X4Y'},
+    {id:'SANTOS WATERFRONT',loc:'Santos',country:'BRA',lat:-23.96,lon:-46.33,yt:'5BxqzvR6TgM'},
+    {id:'GRAMADO CENTRE',loc:'Gramado',country:'BRA',lat:-29.38,lon:-50.87,yt:'TSvnN0xUJW4'},
+    {id:'ST CROIX BEACH',loc:'St Croix',country:'VIR',lat:17.75,lon:-64.70,yt:'bm_-L6felME'},
+    {id:'KRUGER WILDLIFE',loc:'Kruger',country:'ZAF',lat:-24.79,lon:31.48,yt:'gdrNUUf-cQw'},
+    {id:'AMSTERDAM — DAM SQUARE',loc:'Amsterdam',country:'NLD',lat:52.373,lon:4.893,yt:'Gd9d4q6WvUY'},
+    {id:'LAS VEGAS STRIP',loc:'Las Vegas',country:'USA',lat:36.114,lon:-115.172,yt:'TKFGGr8UpaU'},
+    {id:'JACKSON HOLE SQUARE',loc:'Wyoming',country:'USA',lat:43.479,lon:-110.762,yt:'1EiC9bvVGnk'},
+    {id:'SAN FRANCISCO — CASTRO',loc:'San Francisco',country:'USA',lat:37.762,lon:-122.435,yt:'4BaKzO23EtU'},
+    {id:'TOKYO — KABUKICHO',loc:'Tokyo',country:'JPN',lat:35.694,lon:139.702,yt:'DjdUEyjx8GM'},
+    {id:'NEW YORK — BRYANT PARK',loc:'New York',country:'USA',lat:40.754,lon:-73.984,yt:'X7pAb0qjvf0'},
+    {id:'VENICE — LIVE',loc:'Venice',country:'ITA',lat:45.434,lon:12.339,yt:'a1mcaV3Sf9U'},
+    {id:'LONDON — CITY VIEWS',loc:'London',country:'GBR',lat:51.507,lon:-0.087,yt:'krFW8iEquJs'},
+    {id:'SANTA MONICA PIER',loc:'Santa Monica',country:'USA',lat:34.009,lon:-118.497,yt:'v97JpT3ZA0w'},
+    {id:'TELLURIDE MAIN ST',loc:'Colorado',country:'USA',lat:37.937,lon:-107.812,yt:'8Et9fVZld7E'},
+    {id:'KOH SAMUI NIGHT MARKET',loc:'Lamai',country:'THA',lat:9.47,lon:100.05,yt:'VR-x3HdhKLQ'},
+    {id:'TAIWAN — DAXI',loc:'Taoyuan',country:'TWN',lat:24.88,lon:121.89,yt:'XUWjAsajKXg'}
+  ];
+  function camUrl(v){return v.page||(v.yt?'https://www.youtube.com/watch?v='+v.yt:(v.hls||v.img));}
+  function addCam(v){const d=addMarker(Lcam,v.lat,v.lon,0,.03,{id:v.id,loc:(v.loc||'')+(v.country?' · '+v.country:''),
+    type:'CAM',src:v.img?'Traffic cam':(v.hls?'HLS stream':'YouTube live'),url:camUrl(v),yt:v.yt,hls:v.hls,img:v.img,lat:v.lat,lon:v.lon,sig:90},true);
+    pulseRing(Lcam,d._pos,.18);}
+  VIDEO.forEach(addCam); Lcam.count=Lcam.markers.length; const VIDEO0=VIDEO.slice();
+
+  // ===== EMBEDDABLE LIVE RADIO (SomaFM public streams) — clicking plays in the radio dock =====
+  const RADIO=[
+    {id:'SF POLICE SCANNER',loc:'San Francisco',lat:37.775,lon:-122.418,audio:'https://ice5.somafm.com/scanner-128-mp3',page:'https://somafm.com/scanner/'},
+    {id:'DEF CON RADIO',loc:'Las Vegas',lat:36.114,lon:-115.173,audio:'https://ice5.somafm.com/defcon-128-mp3',page:'https://somafm.com/defcon/'},
+    {id:'GROOVE SALAD',loc:'Ambient net',lat:37.77,lon:-122.41,audio:'https://ice5.somafm.com/groovesalad-128-mp3',page:'https://somafm.com/groovesalad/'},
+    {id:'SOMAFM DRONE ZONE',loc:'Deep space',lat:40.71,lon:-74.0,audio:'https://ice5.somafm.com/dronezone-128-mp3',page:'https://somafm.com/dronezone/'}
+  ];
+  RADIO.forEach(s=>{const d=addMarker(Lsdr,s.lat,s.lon,0,.03,{id:s.id,loc:s.loc,type:'SDR',src:'SomaFM stream',
+    url:s.page,audio:s.audio,lat:s.lat,lon:s.lon,sig:82},true);pulseRing(Lsdr,d._pos,.22);});
+  Lsdr.count=Lsdr.markers.length;
+
+  // ===================== EMERGENCY RADIO (ATC + public-safety scanners) =====================
+  // LiveATC direct mounts play in <audio> from the viewer's browser (mounts are best-effort — if
+  // one is silent, use OPEN FEED ↗ to its page). Public police/fire (Broadcastify) is largely
+  // US and gated, so those are click-through. the host app can refresh mounts via the manifest.
+  const AT='https://d.liveatc.net/', LA='https://www.liveatc.net/search/?icao=', BF='https://www.broadcastify.com/search/?q=';
+  const EMERGENCY=[
+    // — US ATC towers (agency voice comms) —
+    {id:'JFK TOWER',agency:'New York · FAA ATC',lat:40.64,lon:-73.78,audio:AT+'kjfk_twr',url:LA+'KJFK'},
+    {id:'LAGUARDIA TWR',agency:'New York · FAA ATC',lat:40.777,lon:-73.87,audio:AT+'klga_twr',url:LA+'KLGA'},
+    {id:'NEWARK TWR',agency:'Newark · FAA ATC',lat:40.69,lon:-74.17,audio:AT+'kewr_twr',url:LA+'KEWR'},
+    {id:'LAX TOWER',agency:'Los Angeles · FAA ATC',lat:33.94,lon:-118.41,audio:AT+'klax_twr',url:LA+'KLAX'},
+    {id:'BOSTON TWR',agency:'Boston Logan · FAA ATC',lat:42.36,lon:-71.01,audio:AT+'kbos_twr',url:LA+'KBOS'},
+    {id:'ATLANTA TWR',agency:'Atlanta · FAA ATC',lat:33.64,lon:-84.43,audio:AT+'katl_twr',url:LA+'KATL'},
+    {id:"O'HARE TWR",agency:'Chicago · FAA ATC',lat:41.98,lon:-87.90,audio:AT+'kord_twr',url:LA+'KORD'},
+    {id:'SFO TOWER',agency:'San Francisco · FAA ATC',lat:37.62,lon:-122.38,audio:AT+'ksfo_twr',url:LA+'KSFO'},
+    {id:'MIAMI TWR',agency:'Miami · FAA ATC',lat:25.79,lon:-80.29,audio:AT+'kmia_twr',url:LA+'KMIA'},
+    {id:'LAS VEGAS TWR',agency:'Las Vegas · FAA ATC',lat:36.08,lon:-115.15,audio:AT+'klas_twr',url:LA+'KLAS'},
+    {id:'SEATTLE TWR',agency:'Seattle · FAA ATC',lat:47.45,lon:-122.31,audio:AT+'ksea_twr',url:LA+'KSEA'},
+    {id:'DFW TOWER',agency:'Dallas–Fort Worth · FAA ATC',lat:32.90,lon:-97.04,audio:AT+'kdfw_twr',url:LA+'KDFW'},
+    {id:'DENVER TWR',agency:'Denver · FAA ATC',lat:39.86,lon:-104.67,audio:AT+'kden_twr',url:LA+'KDEN'},
+    {id:'PHOENIX TWR',agency:'Phoenix · FAA ATC',lat:33.43,lon:-112.01,audio:AT+'kphx_twr',url:LA+'KPHX'},
+    {id:'REAGAN TWR',agency:'Washington DCA · FAA ATC',lat:38.85,lon:-77.04,audio:AT+'kdca_twr',url:LA+'KDCA'},
+    {id:'PHILLY TWR',agency:'Philadelphia · FAA ATC',lat:39.87,lon:-75.24,audio:AT+'kphl_twr',url:LA+'KPHL'},
+    // — International ATC —
+    {id:'TORONTO TWR',agency:'Toronto Pearson · NAV CANADA',lat:43.68,lon:-79.63,audio:AT+'cyyz',url:LA+'CYYZ'},
+    {id:'VANCOUVER TWR',agency:'Vancouver · NAV CANADA',lat:49.19,lon:-123.18,audio:AT+'cyvr',url:LA+'CYVR'},
+    {id:'SCHIPHOL TWR',agency:'Amsterdam · LVNL',lat:52.31,lon:4.76,audio:AT+'eham',url:LA+'EHAM'},
+    {id:'SYDNEY TWR',agency:'Sydney · Airservices AU',lat:-33.95,lon:151.18,audio:AT+'yssy_twr',url:LA+'YSSY'},
+    {id:'HANEDA TWR',agency:'Tokyo · JCAB',lat:35.55,lon:139.78,audio:AT+'rjtt',url:LA+'RJTT'},
+    {id:'HONG KONG APP',agency:'Hong Kong · CAD',lat:22.31,lon:113.91,audio:AT+'vhhh',url:LA+'VHHH'},
+    {id:'AUCKLAND TWR',agency:'Auckland · Airways NZ',lat:-37.01,lon:174.79,audio:AT+'nzaa',url:LA+'NZAA'},
+    {id:'DUBLIN TWR',agency:'Dublin · IAA',lat:53.42,lon:-6.27,audio:AT+'eidw',url:LA+'EIDW'},
+    // — US public-safety scanners (Broadcastify · police/fire/EMS · click-through) —
+    {id:'NYPD / FDNY',agency:'New York · police/fire scanner',lat:40.71,lon:-74.01,url:BF+'New%20York%20City'},
+    {id:'LAPD / LAFD',agency:'Los Angeles · police/fire scanner',lat:34.05,lon:-118.24,url:BF+'Los%20Angeles'},
+    {id:'CHICAGO PD/FD',agency:'Chicago · police/fire scanner',lat:41.88,lon:-87.63,url:BF+'Chicago'},
+    {id:'HOUSTON PD/FD',agency:'Houston · police/fire scanner',lat:29.76,lon:-95.37,url:BF+'Houston'},
+    {id:'MIAMI-DADE',agency:'Miami · police/fire scanner',lat:25.77,lon:-80.19,url:BF+'Miami%20Dade'},
+    {id:'BOSTON PD/FD',agency:'Boston · police/fire scanner',lat:42.36,lon:-71.06,url:BF+'Boston'},
+    {id:'SEATTLE PD/FD',agency:'Seattle · police/fire scanner',lat:47.61,lon:-122.33,url:BF+'Seattle'},
+    {id:'NEW ORLEANS',agency:'New Orleans · police/fire scanner',lat:29.95,lon:-90.07,url:BF+'New%20Orleans'},
+    // — NOAA weather radio + marine / coast guard (Broadcastify · click-through) —
+    {id:'NOAA WX RADIO',agency:'NOAA Weather Radio · NWS',lat:39.0,lon:-98.0,url:BF+'NOAA%20Weather%20Radio'},
+    {id:'USCG SECTOR NY',agency:'New York Harbor · Coast Guard / marine',lat:40.55,lon:-74.05,url:BF+'Coast%20Guard%20New%20York'},
+    {id:'USCG LA/LB',agency:'LA–Long Beach · Coast Guard / marine',lat:33.74,lon:-118.27,url:BF+'Coast%20Guard%20Los%20Angeles'},
+    {id:'USCG MIAMI',agency:'Miami · Coast Guard / marine',lat:25.77,lon:-80.13,url:BF+'Coast%20Guard%20Miami'},
+    {id:'USCG SEATTLE',agency:'Puget Sound · Coast Guard / marine',lat:47.60,lon:-122.35,url:BF+'Coast%20Guard%20Seattle'},
+    {id:'USCG SF BAY',agency:'San Francisco Bay · Coast Guard / marine',lat:37.81,lon:-122.42,url:BF+'Coast%20Guard%20San%20Francisco'},
+    {id:'USCG HOUSTON',agency:'Houston Ship Channel · marine',lat:29.72,lon:-95.05,url:BF+'Houston%20Ship%20Channel'},
+    {id:'USCG NEW ORLEANS',agency:'Lower Mississippi · Coast Guard / marine',lat:29.95,lon:-89.95,url:BF+'Coast%20Guard%20New%20Orleans'}
+  ];
+  EMERGENCY.forEach(e=>{const d=addMarker(Lemg,e.lat,e.lon,0,.028,{id:e.id,loc:e.agency,type:'EMG',
+    src:e.audio?'LiveATC net':'Broadcastify scanner',url:e.url,audio:e.audio,lat:e.lat,lon:e.lon,sig:78},true);
+    pulseRing(Lemg,d._pos,.2);});
+  Lemg.count=EMERGENCY.length;
+
+  // ===================== FINANCIAL MARKETS (exchange nodes, live open/closed) =====================
+  const MARKETS=[
+    {id:'NYSE · NASDAQ',city:'New York',lat:40.71,lon:-74.01,tz:'America/New_York',o:9.5,c:16},
+    {id:'CME',city:'Chicago',lat:41.88,lon:-87.63,tz:'America/Chicago',o:8.5,c:15},
+    {id:'TSX',city:'Toronto',lat:43.65,lon:-79.38,tz:'America/Toronto',o:9.5,c:16},
+    {id:'B3',city:'São Paulo',lat:-23.55,lon:-46.63,tz:'America/Sao_Paulo',o:10,c:17},
+    {id:'LSE',city:'London',lat:51.51,lon:-0.09,tz:'Europe/London',o:8,c:16.5},
+    {id:'EURONEXT',city:'Paris',lat:48.87,lon:2.34,tz:'Europe/Paris',o:9,c:17.5},
+    {id:'XETRA',city:'Frankfurt',lat:50.11,lon:8.68,tz:'Europe/Berlin',o:9,c:17.5},
+    {id:'SIX',city:'Zurich',lat:47.37,lon:8.54,tz:'Europe/Zurich',o:9,c:17.5},
+    {id:'MOEX',city:'Moscow',lat:55.75,lon:37.62,tz:'Europe/Moscow',o:10,c:18.67},
+    {id:'TADAWUL',city:'Riyadh',lat:24.71,lon:46.68,tz:'Asia/Riyadh',o:10,c:15},
+    {id:'NSE · BSE',city:'Mumbai',lat:19.08,lon:72.88,tz:'Asia/Kolkata',o:9.25,c:15.5},
+    {id:'SSE',city:'Shanghai',lat:31.23,lon:121.47,tz:'Asia/Shanghai',o:9.5,c:15},
+    {id:'HKEX',city:'Hong Kong',lat:22.28,lon:114.16,tz:'Asia/Hong_Kong',o:9.5,c:16},
+    {id:'SGX',city:'Singapore',lat:1.28,lon:103.85,tz:'Asia/Singapore',o:9,c:17},
+    {id:'TSE',city:'Tokyo',lat:35.68,lon:139.77,tz:'Asia/Tokyo',o:9,c:15},
+    {id:'ASX',city:'Sydney',lat:-33.87,lon:151.21,tz:'Australia/Sydney',o:10,c:16}
+  ];
+  function exStatus(m){try{
+    const parts=new Intl.DateTimeFormat('en-US',{timeZone:m.tz,weekday:'short',hour:'2-digit',minute:'2-digit',hour12:false}).formatToParts(new Date());
+    const o={};parts.forEach(x=>o[x.type]=x.value);const hh=(+o.hour%24)+(+o.minute)/60;
+    const wkend=(o.weekday==='Sat'||o.weekday==='Sun');
+    return {open:!wkend&&hh>=m.o&&hh<m.c,local:(o.hour==='24'?'00':o.hour)+':'+o.minute};
+  }catch(e){return{open:false,local:'--:--'};}}
+  MARKETS.forEach(m=>{const d=addMarker(Lmkt,m.lat,m.lon,0,.026,{id:m.id,loc:m.city,type:'MKT',src:'Exchange',
+    lat:m.lat,lon:m.lon,mkt:m,sig:80},true);pulseRing(Lmkt,d._pos,.18);m._mk=d;});
+  Lmkt.count=MARKETS.length;
+
+  // ===================== MARITIME CHOKEPOINTS (strategic waterways) =====================
+  const CHOKE=[
+    {id:'SUEZ CANAL',note:'~12% of global trade · Europe–Asia',lat:30.5,lon:32.35},
+    {id:'STRAIT OF HORMUZ',note:'~20% of world oil transit',lat:26.57,lon:56.25},
+    {id:'STRAIT OF MALACCA',note:'Indian↔Pacific · ~25% of traded goods',lat:2.5,lon:101.0},
+    {id:'BAB-EL-MANDEB',note:'Red Sea gateway · Suez approach',lat:12.6,lon:43.4},
+    {id:'PANAMA CANAL',note:'Atlantic↔Pacific shortcut',lat:9.08,lon:-79.68},
+    {id:'BOSPHORUS',note:'Black Sea grain & energy',lat:41.12,lon:29.06},
+    {id:'GIBRALTAR',note:'Mediterranean↔Atlantic',lat:35.95,lon:-5.6},
+    {id:'DOVER STRAIT',note:"World's busiest shipping lane",lat:51.0,lon:1.5},
+    {id:'TAIWAN STRAIT',note:'Semiconductor & China trade artery',lat:24.5,lon:119.5},
+    {id:'DANISH STRAITS',note:'Baltic energy export route',lat:55.7,lon:12.7}
+  ];
+  CHOKE.forEach(c=>{const d=addMarker(Lchoke,c.lat,c.lon,0,.028,{id:c.id,loc:'Maritime chokepoint',type:'CHOKE',
+    src:'Strategic waterway',lat:c.lat,lon:c.lon,note:c.note,sig:70},true);pulseRing(Lchoke,d._pos,.2);});
+  Lchoke.count=CHOKE.length;
+
+  // ===================== LIVE MARKET DATA (provider-agnostic adapters) =====================
+  // Default = keyless (CoinGecko crypto + Frankfurter FX; no US equities/indices without a key).
+  // the host app: set window.SENTINEL_MARKET before this script. PREFER proxyUrl so the vendor key
+  // stays server-side — never ship a real market key in the browser.
+  //   window.SENTINEL_MARKET = { proxyUrl:'/api/market', indices:[...], equities:[...], crypto:[...] }
+  //   or { provider:'finnhub'|'polygon', key:'<browser-safe/domain-restricted key>', ... }
+  const CG_ID={BTC:'bitcoin',ETH:'ethereum',SOL:'solana',BNB:'binancecoin',XRP:'ripple',DOGE:'dogecoin',ADA:'cardano',AVAX:'avalanche-2',LINK:'chainlink',MATIC:'matic-network'};
+  const MK_CFG=Object.assign({provider:'keyless',key:'',proxyUrl:'',
+    indices:[{sym:'^GSPC',label:'S&P500'},{sym:'^IXIC',label:'NASDAQ'},{sym:'^DJI',label:'DOW'},{sym:'^VIX',label:'VIX'}],
+    equities:['AAPL','MSFT','NVDA','AMZN','GOOGL','TSLA','META','JPM'],
+    crypto:['BTC','ETH','SOL','BNB','XRP','DOGE','ADA'],portfolio:false}, window.SENTINEL_MARKET||{});
+  const mktData={crypto:{},fx:{},eq:{},idx:{},prov:MK_CFG.proxyUrl?'proxy':MK_CFG.provider};
+  function fmtP(n){n=+n;if(!isFinite(n))return'–';return n>=1000?Math.round(n).toLocaleString('en-US'):n.toLocaleString('en-US',{maximumFractionDigits:n>=1?2:4});}
+  function exchangesOpen(){let n=0;MARKETS.forEach(m=>{if(exStatus(m).open)n++;});return n;}
+  // ---- adapters: each returns [{sym,price,changePct}] ----
+  async function mdProxy(cls,syms){const r=await fetch(MK_CFG.proxyUrl+'?class='+cls+'&symbols='+encodeURIComponent(syms.join(',')),{cache:'no-store'});return r.ok?await r.json():[];}
+  async function mdFinnhub(sym){const r=await fetch('https://finnhub.io/api/v1/quote?symbol='+encodeURIComponent(sym)+'&token='+encodeURIComponent(MK_CFG.key),{cache:'no-store'});const j=await r.json();return{sym,price:j.c,changePct:j.dp};}
+  async function mdPolygon(cls,syms){const glob=cls==='crypto';const tk=glob?syms.map(s=>'X:'+s+'USD'):syms;
+    const r=await fetch('https://api.polygon.io/v2/snapshot/locale/'+(glob?'global':'us')+'/markets/'+(glob?'crypto':'stocks')+'/tickers?tickers='+encodeURIComponent(tk.join(','))+'&apiKey='+encodeURIComponent(MK_CFG.key),{cache:'no-store'});
+    const j=await r.json();return(j.tickers||[]).map(t=>({sym:(t.ticker||'').replace('X:','').replace('USD',''),price:(t.lastTrade&&t.lastTrade.p)||(t.day&&t.day.c),changePct:t.todaysChangePerc}));}
+  async function cgCrypto(){try{const ids=MK_CFG.crypto.map(s=>CG_ID[s]).filter(Boolean).join(',');
+    const r=await fetch('https://api.coingecko.com/api/v3/simple/price?ids='+ids+'&vs_currencies=usd&include_24hr_change=true',{cache:'no-store'});
+    const j=await r.json();MK_CFG.crypto.forEach(s=>{const d=j[CG_ID[s]];if(d)mktData.crypto[s]={p:d.usd,ch:d.usd_24h_change};});}catch(e){}}
+  async function fetchFX(){try{
+    const r=await fetch('https://api.frankfurter.app/latest?from=USD&to=EUR,GBP,JPY,CNY,CHF,INR,CAD,AUD',{cache:'no-store'});
+    const j=await r.json();mktData.fx=j.rates||{};buildMktTicker();}catch(e){}}
+  async function fetchMarkets(){try{
+    const proxy=!!MK_CFG.proxyUrl,prov=MK_CFG.provider;
+    if(proxy){(await mdProxy('crypto',MK_CFG.crypto)).forEach(x=>{if(x&&x.sym)mktData.crypto[x.sym]={p:x.price,ch:x.changePct};});}
+    else if(prov==='polygon'){(await mdPolygon('crypto',MK_CFG.crypto)).forEach(x=>{if(x&&x.sym)mktData.crypto[x.sym]={p:x.price,ch:x.changePct};});}
+    else{await cgCrypto();}
+    if(proxy){
+      (await mdProxy('equity',MK_CFG.equities)).forEach(x=>{if(x&&x.sym)mktData.eq[x.sym]={p:x.price,ch:x.changePct};});
+      (await mdProxy('index',MK_CFG.indices.map(i=>i.sym))).forEach(x=>{if(x&&x.sym)mktData.idx[x.sym]={p:x.price,ch:x.changePct};});
+    }else if(prov==='finnhub'){
+      for(const s of MK_CFG.equities){try{const q=await mdFinnhub(s);mktData.eq[s]={p:q.price,ch:q.changePct};}catch(e){}}
+      for(const i of MK_CFG.indices){try{const q=await mdFinnhub(i.sym);mktData.idx[i.sym]={p:q.price,ch:q.changePct};}catch(e){}}
+    }else if(prov==='polygon'){
+      (await mdPolygon('stocks',MK_CFG.equities)).forEach(x=>{if(x&&x.sym)mktData.eq[x.sym]={p:x.price,ch:x.changePct};});
+    }
+    mktData.prov=proxy?'proxy':prov;Lmkt.led='live';refreshLayerUI();buildMktTicker();
+  }catch(e){Lmkt.led='sync';}}
+  function buildMktTicker(){const t=$('mkttrack');if(!t)return;let h='';
+    if(mktData.port&&mktData.port.value!=null){const up=(mktData.port.dayPnlPct||0)>=0;
+      h+=`<span class="mi">PORT <b>$${fmtP(mktData.port.value)}</b> <i class="${up?'up':'dn'}">${up?'▲':'▼'}${Math.abs(mktData.port.dayPnlPct||0).toFixed(2)}%</i></span>`;}
+    (MK_CFG.indices||[]).forEach(i=>{const d=mktData.idx[i.sym];if(!d||d.p==null)return;const up=(d.ch||0)>=0;
+      h+=`<span class="mi">${i.label||i.sym} <b>${fmtP(d.p)}</b> <i class="${up?'up':'dn'}">${up?'▲':'▼'}${Math.abs(d.ch||0).toFixed(2)}%</i></span>`;});
+    (MK_CFG.equities||[]).forEach(s=>{const d=mktData.eq[s];if(!d||d.p==null)return;const up=(d.ch||0)>=0;
+      h+=`<span class="mi">${s} <b>$${fmtP(d.p)}</b> <i class="${up?'up':'dn'}">${up?'▲':'▼'}${Math.abs(d.ch||0).toFixed(2)}%</i></span>`;});
+    (MK_CFG.crypto||[]).forEach(s=>{const d=mktData.crypto[s];if(!d)return;const up=(d.ch||0)>=0;
+      h+=`<span class="mi">${s} <b>$${fmtP(d.p)}</b> <i class="${up?'up':'dn'}">${up?'▲':'▼'}${Math.abs(d.ch||0).toFixed(2)}%</i></span>`;});
+    [['EUR',4],['GBP',4],['JPY',2],['CNY',3],['CHF',4],['INR',2]].forEach(f=>{const r=mktData.fx[f[0]];if(r)h+=`<span class="mi">USD/${f[0]} <b>${(+r).toFixed(f[1])}</b></span>`;});
+    if($('exsum'))$('exsum').textContent=exchangesOpen()+'/'+MARKETS.length+' OPEN · '+(mktData.prov||'keyless').toUpperCase();
+    t.innerHTML=(h||'<span class="mi">LINKING MARKET DATA…</span>')+h;}
+  function updateMarkets(){MARKETS.forEach(m=>{const s=exStatus(m),d=m._mk;
+    if(d&&d._spr&&d._spr.material&&d._spr.material.color&&d._spr.material.color.set)d._spr.material.color.set(s.open?0x57ff9a:0xff4d5e);});
+    buildMktTicker();}
+
+  // ================= LIVE: EARTHQUAKES (USGS) =================
+  async function fetchQuakes(){
+    try{
+      const r=await fetch('https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson',{cache:'no-store'});
+      const j=await r.json(); clearLayer(Lquake);
+      j.features.slice(0,120).forEach(f=>{const c=f.geometry.coordinates,m=f.properties.mag||0;
+        const d=addMarker(Lquake,c[1],c[0],0,Math.max(.02,Math.min(.06,0.014*m+.02)),
+          {id:'M'+m.toFixed(1),loc:f.properties.place||'—',type:'QUAKE',src:'USGS live',lat:c[1],lon:c[0],
+           mag:m,depth:c[2],time:f.properties.time,sig:Math.min(99,m*14)},m>=4);
+        if(m>=3.5)pulseRing(Lquake,d._pos,.05+m*.03);});
+      Lquake.count=Lquake.markers.length; Lquake.led='live'; markSync();
+    }catch(e){Lquake.led='off';} refreshLayerUI();
+  }
+
+  // ================= LIVE: AIRCRAFT (OpenSky) =================
+  async function fetchAircraft(){
+    try{
+      const ctrl=new AbortController(),to=setTimeout(()=>ctrl.abort(),9000);
+      const r=await fetch('https://opensky-network.org/api/states/all',{signal:ctrl.signal,cache:'no-store'});
+      clearTimeout(to); const j=await r.json(); const st=(j&&j.states)||[];
+      clearLayer(Lair);
+      // sample down for performance
+      const step=Math.max(1,Math.floor(st.length/90));
+      for(let i=0;i<st.length;i+=step){const s=st[i];const lon=s[5],lat=s[6];if(lat==null||lon==null)continue;
+        const alt=Math.min(.05,(s[7]||0)/250000);
+        addMarker(Lair,lat,lon,alt,.016,{id:(s[1]||s[0]||'UNK').trim()||'UNK',loc:s[2]||'—',type:'AIRCRAFT',
+          src:'OpenSky Network',lat,lon,altm:s[7],vel:s[9],trk:s[10],sig:70+Math.random()*25},false);}
+      Lair.count=Lair.markers.length; Lair.led=Lair.count?'live':'off'; markSync();
+    }catch(e){Lair.led='off';} refreshLayerUI();
+  }
+
+  // ================= LIVE: ISS =================
+  let issMarker=null;
+  async function fetchISS(){
+    try{
+      const r=await fetch('https://api.wheretheiss.at/v1/satellites/25544',{cache:'no-store'});
+      const j=await r.json();
+      clearLayer(Liss);
+      const d=addMarker(Liss,j.latitude,j.longitude,Math.min(.06,j.altitude/8000),.03,
+        {id:'ISS (ZARYA)',loc:'Low Earth Orbit',type:'ISS',src:'wheretheiss.at live',lat:j.latitude,lon:j.longitude,
+         altm:Math.round(j.altitude*1000),vel:Math.round(j.velocity),sig:99},true);
+      issMarker=d._core; Liss.count=1; Liss.led='live'; markSync();
+    }catch(e){Liss.led='off';} refreshLayerUI();
+  }
+
+  // ===================== WEATHER ALERTS (NWS, live keyless) =====================
+  async function fetchAlerts(){try{
+    const r=await fetch('https://api.weather.gov/alerts/active?status=actual&severity=Severe,Extreme&limit=250',{cache:'no-store'});
+    const j=await r.json();clearLayer(Lalert);
+    (j.features||[]).slice(0,150).forEach(f=>{const g=f.geometry;if(!g)return;let lat,lon;
+      if(g.type==='Point'){lon=g.coordinates[0];lat=g.coordinates[1];}
+      else{const ring=g.type==='Polygon'?g.coordinates[0]:(g.type==='MultiPolygon'?g.coordinates[0][0]:null);if(!ring||!ring.length)return;
+        let sx=0,sy=0;ring.forEach(c=>{sx+=c[0];sy+=c[1];});lon=sx/ring.length;lat=sy/ring.length;}
+      if(lat==null||isNaN(lat))return;const p=f.properties||{};
+      const d=addMarker(Lalert,lat,lon,0,.03,{id:p.event||'ALERT',loc:(p.areaDesc||'').split(';')[0].slice(0,50),type:'ALERT',
+        src:'NWS · '+(p.severity||''),url:(p.uri||p['@id']||''),lat,lon,headline:p.headline||'',sig:82},true);
+      pulseRing(Lalert,d._pos,.05);});
+    Lalert.count=Lalert.markers.length;Lalert.led='live';markSync();
+  }catch(e){Lalert.led='off';}refreshLayerUI();}
+
+  // ===================== ALERTS / INCIDENTS ENGINE =====================
+  const INCIDENTS=[]; const seenQ=new Set(), seenA=new Set(); let lastBell=null, AUTOFOCUS=false;
+  function pushIncident(txt){INCIDENTS.unshift(txt);if(INCIDENTS.length>10)INCIDENTS.pop();
+    const b=$('banner');if(b){b.classList.add('flash');setTimeout(()=>b.classList.remove('flash'),2200);}}
+  function focusLatLon(lat,lon){try{autoRot=false;idle=0;tRotY=-(lon*Math.PI/180)-Math.PI/2;tRotX=Math.max(-1.2,Math.min(1.2,lat*Math.PI/180));}catch(e){}}
+  function scanIncidents(){
+    Lquake.markers.forEach(m=>{const t=m.userData.track;if(t&&t.mag>=5){const k=t.id+'|'+t.loc;if(!seenQ.has(k)){seenQ.add(k);
+      pushIncident('⚠ M'+(+t.mag).toFixed(1)+' QUAKE · '+(''+t.loc).toUpperCase().slice(0,26));if(AUTOFOCUS)focusLatLon(t.lat,t.lon);}}});
+    Lalert.markers.forEach(m=>{const t=m.userData.track;const k=(t.id||'')+'|'+(t.loc||'');if(!seenA.has(k)){seenA.add(k);
+      pushIncident('⚠ '+(''+t.id).toUpperCase()+' · '+(''+t.loc).toUpperCase().slice(0,24));}});
+    const open=exchangesOpen();if(lastBell!=null&&open!==lastBell)pushIncident((open>lastBell?'▲ OPENING BELL':'▼ CLOSING BELL')+' · '+open+'/'+MARKETS.length+' OPEN');
+    lastBell=open;
+  }
+
+  // ===================== PORTFOLIO (read-only, via proxy) =====================
+  async function fetchPortfolio(){if(!MK_CFG.proxyUrl||!MK_CFG.portfolio)return;try{
+    const r=await fetch(MK_CFG.proxyUrl.replace(/\/market$/,'/portfolio'),{cache:'no-store'});if(!r.ok)return;
+    const j=await r.json();mktData.port=j;buildMktTicker();}catch(e){}}
+
+  // ================= MODELED: ORBITAL CONSTELLATION =================
+  // Inclined circular orbits, propagated in-browser. Named after real missions;
+  // positions are modeled (not live TLEs) so the layer always animates with zero setup.
+  const SATNAMES=['HUBBLE (HST)','NOAA-19','LANDSAT-8','TERRA','GPS BIIF-3','GALILEO-5',
+    'STARLINK-1','STARLINK-2','METEOR-M2','SENTINEL-2A','AQUA','GOES-16','IRIDIUM-4','COSMOS-2251'];
+  const INC=[28.5,99,98.2,98.2,55,56,53,53,98.5,98.6,98,0.1,86.4,74];
+  const sats=[];
+  function initSats(){
+    clearLayer(Lsat); sats.length=0;
+    for(let i=0;i<SATNAMES.length;i++){
+      const d=addMarker(Lsat,0,0,.09,.02,{id:SATNAMES[i],loc:'Orbital',type:'SAT',src:'Modeled orbit',sig:75},false);
+      sats.push({model:{inc:INC[i]*Math.PI/180,raan:Math.random()*6.28,ph:Math.random()*6.28,
+        sp:.12+Math.random()*.22,alt:.07+Math.random()*.06},data:d});}
+    Lsat.count=sats.length; Lsat.led='static';
+  }
+  function updateSats(t){
+    sats.forEach(s=>{const m=s.model,a=m.ph+t*m.sp; // inclined circular orbit
+      const x=Math.cos(a),y=Math.sin(a)*Math.cos(m.inc),z=Math.sin(a)*Math.sin(m.inc);
+      const xr=x*Math.cos(m.raan)-z*Math.sin(m.raan),zr=x*Math.sin(m.raan)+z*Math.cos(m.raan);
+      const lat=Math.asin(Math.max(-1,Math.min(1,y)))*180/Math.PI,lon=Math.atan2(zr,xr)*180/Math.PI;
+      const pos=ll(lat,lon,R*(1.01+m.alt));s.data._core.position.copy(pos);
+      s.data.lat=lat;s.data.lon=lon;s.data._pos=pos;});
+  }
+
+  // ================= HUD: layer panel =================
+  const lb=$('layerbody'); let order=['mkt','choke','alert','quake','air','sat','iss','emg','sdr','cam','deal'];
+  function buildLayerPanel(){lb.innerHTML='';order.forEach(k=>{const L=LAYERS[k];if(!L)return;
+    const row=document.createElement('div');row.className='lyr'+(L.on!==false?' on':'');row.style.color=hexstr(L.color);
+    row.innerHTML=`<span class="led ${L.led}"></span><span class="sw"><i></i></span>`+
+      `<span class="nm">${L.label}</span><span class="ct" id="ct_${k}">${L.count||0}</span>`;
+    row.onclick=()=>{L.on=!L.on;L.group.visible=L.on;row.classList.toggle('on',L.on);updateCounts();};
+    L._row=row; lb.appendChild(row);});}
+  buildLayerPanel();
+  function refreshLayerUI(){order.forEach(k=>{const L=LAYERS[k];if(!L||!L._row)return;
+    const led=L._row.querySelector('.led');if(led)led.className='led '+L.led;});updateCounts();}
+  function updateCounts(){let tracks=0,live=0,total=0;
+    order.forEach(k=>{const L=LAYERS[k];$('ct_'+k).textContent=L.count;
+      if(L.on)tracks+=L.count; if(L.led==='live'||L.led==='static')total++; if(L.led==='live')live++;});
+    $('mTracks').textContent=tracks;$('nTotal').textContent=tracks;
+    $('mLive').textContent=live+' / '+order.length;}
+
+  // ================= selection / detail =================
+  let selected=null;
+  function select(t){selected=t;
+    $('dId').textContent=t.id;$('dLoc').textContent=(t.loc||'').toString().toUpperCase().slice(0,42);
+    $('dType').textContent=t.type;$('dType').style.color=hexstr(t.layer.color);
+    $('dCoord').textContent=(t.lat!=null?t.lat.toFixed(2):'—')+', '+(t.lon!=null?t.lon.toFixed(2):'—');
+    let ex='—';
+    if(t.type==='QUAKE')ex='mag '+t.mag+' · '+Math.round(t.depth)+'km';
+    else if(t.type==='AIRCRAFT')ex=(t.altm?Math.round(t.altm)+'m ':'')+(t.vel?Math.round(t.vel)+'m/s':'');
+    else if(t.type==='ISS'||t.type==='SAT')ex=(t.altm?t.altm+'km ':'')+(t.vel?t.vel+'km/h':'orbital');
+    else if(t.type==='SDR')ex='public receiver';
+    else if(t.type==='CAM')ex='live public cam';
+    else if(t.type==='MKT'){const s=exStatus(t.mkt);ex=(s.open?'● OPEN':'○ CLOSED')+' · '+s.local+' local';}
+    else if(t.type==='CHOKE')ex=t.note||'strategic waterway';
+    else if(t.type==='EMG')ex=t.audio?'live audio · click to listen':'scanner · OPEN FEED ↗';
+    else if(t.type==='ALERT')ex=(t.headline||t.src||'weather alert').slice(0,58);
+    $('dExtra').textContent=ex;$('dSrc').textContent=t.src||'—';
+    $('dSig').style.width=(t.sig||60)+'%';
+    const of=$('openfeed');
+    if(t.url){of.style.display='block';of.href=t.url;of.textContent='OPEN FEED ↗';}else of.style.display='none';
+    if(t.img){if(mode==='globe')setMode('split');loadFeatured({kind:'img',url:t.img,label:t.id+' · '+(t.loc||'')});}
+    else if(t.hls){if(mode==='globe')setMode('split');loadFeatured({kind:'hls',url:t.hls,label:t.id+' · '+(t.loc||'')});}
+    else if(t.yt){if(mode==='globe')setMode('split');loadFeatured({kind:'yt',id:t.yt,label:t.id+' · '+(t.loc||'')});}
+    if(t.audio){if(mode==='globe')setMode('split');playRadio({name:t.id,url:t.audio});}
+  }
+
+  // ================= interaction =================
+  let rotY=.4,rotX=-.32,tRotY=.4,tRotX=-.32,dist=8.4,tDist=8.4,dragging=false,autoRot=true,px=0,py=0,idle=0,moved=0;
+  const el=renderer.domElement;
+  el.addEventListener('pointerdown',e=>{dragging=true;autoRot=false;idle=0;moved=0;px=e.clientX;py=e.clientY;});
+  addEventListener('pointerup',()=>dragging=false);
+  addEventListener('pointermove',e=>{if(dragging){const dx=e.clientX-px,dy=e.clientY-py;moved+=Math.abs(dx)+Math.abs(dy);
+    tRotY+=dx*.006;tRotX=Math.max(-1.3,Math.min(1.3,tRotX+dy*.006));px=e.clientX;py=e.clientY;idle=0;}});
+  el.addEventListener('wheel',e=>{e.preventDefault();tDist=Math.max(4.4,Math.min(15,tDist+e.deltaY*.006));idle=0;},{passive:false});
+  el.addEventListener('click',e=>{if(moved>6)return;
+    const m=new THREE.Vector2((e.clientX/innerWidth)*2-1,-(e.clientY/innerHeight)*2+1);
+    raycaster.setFromCamera(m,cam);const hit=raycaster.intersectObjects(hitTargets);
+    if(hit.length&&hit[0].object.userData.track)select(hit[0].object.userData.track);});
+
+  // ================= TACTICAL VIDEO WALL + RADIO =================
+  let mode='split', camX=0, camXTarget=0.85, specEls=null, wallPage=0, curFilter='ALL', mktX=0; const WALL_PER=9;
+  const audio=$('radioaudio'); let curStation=null;
+  const ORIGIN=(location.protocol==='http:'||location.protocol==='https:')?location.origin:null;
+  const HOSTED=!!ORIGIN; // YouTube embeds only work from a real http(s) origin, not file:// or sandbox
+  const YT=id=>`https://www.youtube.com/embed/${id}?autoplay=1&mute=1&playsinline=1&rel=0&modestbranding=1&enablejsapi=1`+
+    (ORIGIN?`&origin=${encodeURIComponent(ORIGIN)}`:'');
+  function ytId(u){u=(''+u).trim(); if(/^[\w-]{11}$/.test(u))return u;
+    const m=u.match(/[?&]v=([\w-]{11})/)||u.match(/youtu\.be\/([\w-]{11})/)||u.match(/embed\/([\w-]{11})/)||u.match(/live\/([\w-]{11})/);
+    return m?m[1]:null;}
+  function ol(label,ytid){return `<div class="ol"><span class="lb">${label}</span><span class="rec blink">● REC</span>`+
+    `<span class="tc" data-tc>--:--:-- UTC</span>`+
+    (ytid?`<a class="ytlink" href="https://www.youtube.com/watch?v=${ytid}" target="_blank" rel="noopener">WATCH ↗</a>`:'')+
+    `<span class="br b1"></span><span class="br b2"></span><span class="br b3"></span><span class="br b4"></span></div>`;}
+  function playHls(v,url){try{if(v.canPlayType('application/vnd.apple.mpegurl')){v.src=url;v.play().catch(()=>{});return;}
+    if(window.Hls&&Hls.isSupported()){const h=new Hls();h.loadSource(url);h.attachMedia(v);h.on(Hls.Events.MANIFEST_PARSED,()=>v.play().catch(()=>{}));}
+    else{v.src=url;v.play().catch(()=>{});}}catch(e){}}
+  function loadFeatured(f){const el=$('featured');
+    if(f.kind==='yt'){el.innerHTML=`<iframe allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen src="${YT(f.id)}"></iframe>`+
+      `<a class="ytfallback" href="https://www.youtube.com/watch?v=${f.id}" target="_blank" rel="noopener">▶ IF BLANK, WATCH ON YOUTUBE ↗</a>`+ol(f.label||'LIVE FEED',f.id);}
+    else if(f.kind==='hls'){el.innerHTML=`<video autoplay muted playsinline controls></video>`+ol(f.label||'LIVE FEED');playHls(el.querySelector('video'),f.url);}
+    else if(f.kind==='img'){el.innerHTML=`<img class="camimg" data-src="${f.url}" src="${f.url}">`+ol(f.label||'TRAFFIC CAM');}
+    else{el.innerHTML=`<div class="ph"><div class="scan"></div><span>${f.label||'FEED'}</span><span style="color:var(--red)">EMBED BLOCKED — USE “OPEN FEED ↗”</span></div>`;}
+  }
+  function markStn(url){document.querySelectorAll('.stn').forEach(e=>e.classList.toggle('play',e.dataset.url===url));}
+  function playRadio(st){
+    if(curStation===st.url&&!audio.paused){audio.pause();$('npname').textContent='— PAUSED —';markStn(null);return;}
+    try{audio.src=st.url;audio.volume=0.9;audio.play().catch(()=>{});}catch(e){}
+    curStation=st.url;$('npname').textContent='▶ '+st.name;$('npname').style.color='var(--amber)';markStn(st.url);
+  }
+  const CCN={USA:'united states usa america',JPN:'japan',IRL:'ireland',GBR:'united kingdom uk britain england',
+    CHE:'switzerland',NLD:'netherlands holland',CZE:'czech czechia',ALB:'albania',ESP:'spain canary',TWN:'taiwan',
+    THA:'thailand',BRA:'brazil',VIR:'virgin islands caribbean',ZAF:'south africa',ITA:'italy',NET:'network test'};
+  const REGION={USA:'AMERICAS',CAN:'AMERICAS',BRA:'AMERICAS',VIR:'AMERICAS',MEX:'AMERICAS',ARG:'AMERICAS',
+    IRL:'EUROPE',GBR:'EUROPE',CHE:'EUROPE',NLD:'EUROPE',CZE:'EUROPE',ALB:'EUROPE',ESP:'EUROPE',ITA:'EUROPE',DEU:'EUROPE',FRA:'EUROPE',RUS:'EUROPE',
+    JPN:'ASIA-PAC',TWN:'ASIA-PAC',THA:'ASIA-PAC',SGP:'ASIA-PAC',HKG:'ASIA-PAC',CHN:'ASIA-PAC',AUS:'ASIA-PAC',IND:'ASIA-PAC',KOR:'ASIA-PAC',
+    ZAF:'AFRICA',KEN:'AFRICA',NGA:'AFRICA',EGY:'AFRICA',NET:'GLOBAL'};
+  function regionOf(v){return REGION[v.country]||'GLOBAL';}
+  function catOf(v){const s=(v.id+' '+(v.loc||'')).toLowerCase();
+    if(/airport/.test(s))return'AIRPORTS';if(/rail|station|crossing/.test(s))return'RAIL';
+    if(/wildlife|kruger|alaska/.test(s))return'NATURE';
+    if(/honky|strip|night|market|kabukicho|castro|vegas/.test(s))return'NIGHTLIFE';
+    if(/beach|waterfront|bay|marina|pier|mount|canal/.test(s))return'COAST';return'CITY';}
+  function passFilter(v){if(curFilter==='ALL')return true;return regionOf(v)===curFilter||catOf(v)===curFilter;}
+  function buildDirectory(q){q=(q||'').toLowerCase();const mg=$('minigrid');mg.innerHTML='';
+    const list=VIDEO.filter(v=>passFilter(v)&&(!q||(v.id+' '+(v.loc||'')+' '+(v.country||'')+' '+(CCN[v.country]||'')).toLowerCase().includes(q)));
+    $('camcount').textContent=list.length+' / '+VIDEO.length+' FEEDS';
+    list.forEach(v=>{const t=document.createElement('div');t.className='tile';
+      t.innerHTML=`<div class="ph"><div class="scan"></div><span>${v.id}</span><span style="color:var(--cyan)">${v.hls?'▶ LIVE':(v.img?'◉ CAM':'▶ VIEW')}</span></div>`+ol(v.id,v.yt);
+      t.onclick=()=>{if(v.img)loadFeatured({kind:'img',url:v.img,label:v.id});else if(v.hls)loadFeatured({kind:'hls',url:v.hls,label:v.id});else loadFeatured({kind:'yt',id:v.yt,label:v.id+' · '+(v.loc||'')});};
+      mg.appendChild(t);});}
+  function renderWallPage(p){const pages=Math.max(1,Math.ceil(VIDEO.length/WALL_PER));wallPage=((p%pages)+pages)%pages;
+    const wg=$('wallgrid');wg.querySelectorAll('video').forEach(v=>{try{v.pause();}catch(e){}});wg.innerHTML='';
+    VIDEO.slice(wallPage*WALL_PER,wallPage*WALL_PER+WALL_PER).forEach(v=>{const t=document.createElement('div');t.className='tile';
+      if(v.img){const im=document.createElement('img');im.className='camimg';im.setAttribute('data-src',v.img);im.src=v.img;
+        t.appendChild(im);t.insertAdjacentHTML('beforeend',ol(v.id));}
+      else if(v.hls){const vid=document.createElement('video');vid.autoplay=true;vid.muted=true;vid.playsInline=true;
+        t.appendChild(vid);t.insertAdjacentHTML('beforeend',ol(v.id));playHls(vid,v.hls);}
+      else if(HOSTED){t.innerHTML=`<iframe allow="autoplay; encrypted-media" allowfullscreen src="${YT(v.yt)}"></iframe>`+ol(v.id,v.yt);}
+      else{t.innerHTML=`<div class="ph"><div class="scan"></div><span>${v.id}</span><span style="color:var(--amber)">▶ WATCH ↗</span></div>`+ol(v.id,v.yt);
+        t.style.cursor='pointer';t.onclick=()=>window.open('https://www.youtube.com/watch?v='+v.yt,'_blank','noopener');}
+      wg.appendChild(t);});
+    $('wallpageinfo').textContent=(wallPage+1)+' / '+pages;}
+  function buildDocks(){
+    buildDirectory('');
+    const stn=$('stations');stn.innerHTML='';
+    const RADIO_ALL=RADIO.concat(EMERGENCY.filter(e=>e.audio).map(e=>({id:e.id,loc:e.agency,audio:e.audio})));
+    RADIO_ALL.forEach(s=>{const d=document.createElement('div');d.className='stn';d.dataset.url=s.audio;
+      d.innerHTML=`<span class="pi">▮▮▮</span><span class="nm">${s.id}</span><span class="lc">${s.loc}</span>`;
+      d.onclick=()=>playRadio({name:s.id,url:s.audio});stn.appendChild(d);});
+    const sp=$('spectrum');sp.innerHTML='';for(let i=0;i<18;i++)sp.appendChild(document.createElement('i'));
+    specEls=sp.children;
+    const FILTERS=['ALL','AMERICAS','EUROPE','ASIA-PAC','AFRICA','AIRPORTS','RAIL','NATURE','NIGHTLIFE','COAST'];
+    const fb=$('filterbar');fb.innerHTML='';
+    FILTERS.forEach(f=>{const b=document.createElement('button');b.textContent=f;if(f===curFilter)b.classList.add('on');
+      b.onclick=()=>{curFilter=f;fb.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x.textContent===f));buildDirectory($('camsearch').value||'');};
+      fb.appendChild(b);});
+    $('setpick').onchange=e=>{const v=e.target.value;if(v==='default')window.SENTINEL.restore();else window.SENTINEL.loadSet(v,{replace:true});};
+    $('camsearch').addEventListener('input',e=>buildDirectory(e.target.value));
+    $('wallprev').onclick=()=>renderWallPage(wallPage-1);
+    $('wallnext').onclick=()=>renderWallPage(wallPage+1);
+    $('pastego').onclick=()=>{const u=$('pasteurl').value.trim();if(!u)return;const id=ytId(u);
+      if(id)loadFeatured({kind:'yt',id,label:'PASTED FEED'});
+      else if(/\.m3u8/i.test(u))loadFeatured({kind:'hls',url:u,label:'PASTED HLS'});
+      else loadFeatured({kind:'link',url:u,label:'UNSUPPORTED URL'});};
+    $('pasteurl').addEventListener('keydown',e=>{if(e.key==='Enter')$('pastego').click();});
+    document.querySelectorAll('#modebar button[data-mode]').forEach(b=>b.onclick=()=>setMode(b.dataset.mode));
+    const fbn=$('focusbtn');if(fbn)fbn.onclick=()=>{AUTOFOCUS=!AUTOFOCUS;fbn.classList.toggle('act',AUTOFOCUS);};
+    const rbn=$('randbtn');if(rbn)rbn.onclick=()=>{const pool=VIDEO.filter(v=>v.img||v.hls||v.yt);if(!pool.length)return;
+      const v=pool[Math.floor(Math.random()*pool.length)];if(mode==='globe')setMode('split');
+      if(v.img)loadFeatured({kind:'img',url:v.img,label:v.id+' · '+(v.loc||'')});
+      else if(v.hls)loadFeatured({kind:'hls',url:v.hls,label:v.id+' · '+(v.loc||'')});
+      else loadFeatured({kind:'yt',id:v.yt,label:v.id+' · '+(v.loc||'')});
+      if(v.lat!=null)focusLatLon(v.lat,v.lon);};
+  }
+  // the host app MESH HOOK: drop a feeds.json beside this file (or set window.SENTINEL_FEEDS_URL)
+  // shaped { "cams":[ {id,loc,country,lat,lon, yt|hls} , ... ] } to add hundreds of sources at runtime.
+  const feedKey=v=>v.yt?('yt:'+v.yt):(v.hls?('hls:'+v.hls):('img:'+(v.img||'')));
+  async function loadManifest(){
+    const url=window.SENTINEL_FEEDS_URL||'feeds.json';
+    try{const r=await fetch(url,{cache:'no-store'});if(!r.ok)return;const j=await r.json();
+      const cams=(j&&(j.cams||j.video))||[];const seen=new Set(VIDEO.map(feedKey));let n=0;
+      cams.forEach(v=>{if((v.yt||v.hls||v.img)&&v.lat!=null&&v.lon!=null&&!seen.has(feedKey(v))){seen.add(feedKey(v));VIDEO.push(v);addCam(v);n++;}});
+      if(n){Lcam.count=Lcam.markers.length;buildDirectory($('camsearch').value||'');refreshLayerUI();}
+    }catch(e){}
+  }
+  // the host app hot-inject API: window.SENTINEL.addFeeds([{id,loc,country,lat,lon,yt|hls}, ...]) -> count added
+  function restoreDefaults(){clearLayer(Lcam);VIDEO=VIDEO0.slice();VIDEO.forEach(addCam);Lcam.count=Lcam.markers.length;buildDirectory($('camsearch').value||'');refreshLayerUI();}
+  window.SENTINEL={
+    addFeeds(list){if(!Array.isArray(list))return 0;const seen=new Set(VIDEO.map(feedKey));let n=0;
+      list.forEach(v=>{if((v.yt||v.hls||v.img)&&v.lat!=null&&v.lon!=null&&!seen.has(feedKey(v))){seen.add(feedKey(v));VIDEO.push(v);addCam(v);n++;}});
+      if(n){Lcam.count=Lcam.markers.length;buildDirectory($('camsearch').value||'');refreshLayerUI();}return n;},
+    async loadSet(url,opts){opts=opts||{};try{const r=await fetch(url,{cache:'no-store'});if(!r.ok)return 0;const j=await r.json();
+      const cams=(j&&(j.cams||j.video))||[];if(opts.replace){clearLayer(Lcam);VIDEO=[];}
+      const seen=new Set(VIDEO.map(feedKey));let n=0;
+      cams.forEach(v=>{if((v.yt||v.hls||v.img)&&v.lat!=null&&v.lon!=null&&!seen.has(feedKey(v))){seen.add(feedKey(v));VIDEO.push(v);addCam(v);n++;}});
+      Lcam.count=Lcam.markers.length;buildDirectory($('camsearch').value||'');refreshLayerUI();return n;}catch(e){return 0;}},
+    restore(){restoreDefaults();},
+    get feeds(){return VIDEO.slice();},
+    // ---- modular plugin API: the host app can add layers/markers at runtime ----
+    registerLayer(spec){if(!spec||!spec.key||LAYERS[spec.key])return null;
+      const L=Layer(spec.key,spec.label||spec.key,spec.color||0x38f0e0,spec.led||'static');
+      (spec.markers||[]).forEach(m=>{if(m.lat==null||m.lon==null)return;
+        const d=addMarker(L,m.lat,m.lon,0,m.size||.026,Object.assign({type:(''+spec.key).toUpperCase(),src:spec.label||'',lat:m.lat,lon:m.lon,sig:70},m),true);
+        pulseRing(L,d._pos,.18);});
+      L.count=L.markers.length;if(order.indexOf(spec.key)<0)order.push(spec.key);buildLayerPanel();refreshLayerUI();return spec.key;},
+    addMarkers(key,markers){const L=LAYERS[key];if(!L)return 0;let n=0;(markers||[]).forEach(m=>{if(m.lat==null||m.lon==null)return;
+      const d=addMarker(L,m.lat,m.lon,0,m.size||.026,Object.assign({type:(''+key).toUpperCase(),src:L.label,lat:m.lat,lon:m.lon,sig:70},m),true);
+      pulseRing(L,d._pos,.18);n++;});L.count=L.markers.length;refreshLayerUI();return n;},
+    pushIncident(txt){if(txt)pushIncident(''+txt);},
+    get layers(){return order.slice();}
+  };
+  function setMode(m){mode=m;
+    $('videodock').style.display=(m==='split')?'flex':'none';
+    $('radiodock').style.display=(m==='globe')?'none':'block';
+    const wall=(m==='wall');
+    $('wallgrid').style.display=wall?'grid':'none';
+    $('wallpager').style.display=wall?'flex':'none';
+    document.querySelectorAll('#modebar button[data-mode]').forEach(b=>b.classList.toggle('act',b.dataset.mode===m));
+    camXTarget=(m==='split')?0.85:0;
+    if(wall)renderWallPage(wallPage);
+    else{const wg=$('wallgrid');wg.querySelectorAll('video').forEach(v=>{try{v.pause();}catch(e){}});wg.innerHTML='';}
+  }
+
+  // ================= clock / status =================
+  const bootTime=Date.now(); let lastSync=null;
+  function markSync(){lastSync=Date.now();}
+  function two(n){return String(n).padStart(2,'0');}
+  setInterval(()=>{const d=new Date();
+    const cs=two(d.getUTCHours())+':'+two(d.getUTCMinutes())+':'+two(d.getUTCSeconds());
+    $('clock').textContent=cs;
+    document.querySelectorAll('[data-tc]').forEach(e=>e.textContent=cs+' UTC');
+    const up=Math.floor((Date.now()-bootTime)/1000);
+    $('uptime').textContent=two(Math.floor(up/3600))+':'+two(Math.floor(up/60)%60)+':'+two(up%60);
+    $('mSync').textContent=lastSync?Math.max(0,Math.floor((Date.now()-lastSync)/1000))+'s AGO':'—';
+  },1000);
+
+  // ================= ticker =================
+  const VERBS=['TRACK LOCKED','SIGNAL ACQUIRED','PACKET INTERCEPT','FREQ HOP','TELEMETRY SYNC','ANOMALY FLAG','UPLINK STABLE'];
+  const track=$('ticktrack');
+  function buildTicker(){let items=[];
+    INCIDENTS.forEach(x=>items.push(`<b style="color:var(--red)">${x}</b>`));
+    Lquake.markers.slice(0,6).forEach(m=>{const t=m.userData.track;items.push(`${t.id} · ${(''+t.loc).toUpperCase().slice(0,24)} · <b>SEISMIC</b>`);});
+    Lair.markers.slice(0,6).forEach(m=>{const t=m.userData.track;items.push(`${t.id} · ${(''+t.loc).toUpperCase().slice(0,20)} · <b>AIRBORNE</b>`);});
+    SDR.slice(0,4).forEach(s=>items.push(`${s[0].toUpperCase().slice(0,26)} · <b>RF ONLINE</b>`));
+    for(let i=0;i<6;i++){const c=CAMS[i%CAMS.length];items.push(`${c[0].toUpperCase()} · <b>${VERBS[i%VERBS.length]}</b>`);}
+    if(!items.length)items=['ESTABLISHING UPLINK…'];
+    // shuffle-ish
+    const h=items.map(x=>`<span>${x}</span>`).join('');track.innerHTML=h+h;}
+  let tickX=0;
+
+  // ================= boot / init =================
+  const bootSteps=[['LINKING SATELLITE UPLINK…',12],['LOADING TERRAIN MASK…',30],['PINGING USGS SEISMIC NET…',48],
+    ['ACQUIRING ADS-B TRAFFIC…',66],['SYNCING ORBITAL ELEMENTS…',82],['GRID ONLINE',100]];
+  let bs=0;const bootInt=setInterval(()=>{if(bs<bootSteps.length){$('bootmsg').textContent=bootSteps[bs][0];
+    $('bootbar').style.width=bootSteps[bs][1]+'%';bs++;}else{clearInterval(bootInt);
+    const b=$('boot');b.style.opacity=0;setTimeout(()=>b.style.display='none',800);}},420);
+
+  initSats();
+  buildDocks(); setMode('split'); loadManifest();
+  try{const _s=new URLSearchParams(location.search).get('set');if(_s)window.SENTINEL.loadSet(_s,{replace:true});}catch(e){}
+  loadFeatured({kind:'hls',url:'https://cph-p2p-msl.akamaized.net/hls/live/2000341/test/master.m3u8',label:'LIVE TEST SIGNAL · CDN'});
+  fetchQuakes(); fetchAircraft(); fetchISS();
+  fetchMarkets(); fetchFX(); updateMarkets();
+  setInterval(fetchMarkets,15000); setInterval(fetchFX,3600000); setInterval(updateMarkets,30000);
+  fetchAlerts(); fetchPortfolio();
+  setInterval(fetchAlerts,60000); setInterval(scanIncidents,8000); setInterval(fetchPortfolio,20000);
+  setInterval(()=>{document.querySelectorAll('.camimg').forEach(im=>{const b=im.getAttribute('data-src');if(b)im.src=b+(b.indexOf('?')>=0?'&':'?')+'_t='+Date.now();});},6000);
+  setTimeout(buildTicker,1500); setInterval(buildTicker,12000);
+  setInterval(fetchQuakes,90000); setInterval(fetchAircraft,60000); setInterval(fetchISS,5000);
+  updateCounts();
+
+  // ================= animate =================
+  const clock=new THREE.Clock();
+  function animate(){requestAnimationFrame(animate);const t=clock.getElapsedTime();
+    if(!dragging){idle++;if(idle>200)autoRot=true;} if(autoRot)tRotY+=.0015;
+    rotY+=(tRotY-rotY)*.08;rotX+=(tRotX-rotX)*.08;dist+=(tDist-dist)*.08;
+    world.rotation.y=rotY;world.rotation.x=rotX;
+    camX+=(camXTarget-camX)*.08;
+    cam.position.set(0,1.3*(dist/8.4),dist);cam.lookAt(camX,0,0);
+    updateSats(t);
+    // glow pulsing
+    [Lquake,Lsdr,Lcam,Liss].forEach(L=>{if(!L.on)return;L.markers.forEach(m=>{const s=m.userData.track._spr;
+      if(s)s.material.opacity=.55+.35*Math.sin(t*3+m.position.x*4);});});
+    // rings
+    [Lquake,Lsdr,Lcam].forEach(L=>{if(!L.on)return;L.rings.forEach(r=>{const u=r.userData;
+      let p=((t*.5)+u.t)%1;const sc=.02+p*(u.max*6);r.scale.set(sc,sc,sc);r.material.opacity=(1-p)*.6;});});
+    // arcs
+    if(Ldeal.on)arcs.forEach(a=>{a.t=(a.t+a.speed*.008)%1;a.pulse.position.copy(a.curve.getPoint(a.t));});
+    // ticker
+    tickX-=1.05;if(tickX<-track.scrollWidth/2)tickX=0;track.style.transform=`translateX(${tickX}px)`;
+    const mt=$('mkttrack');if(mt){mktX-=0.6;const half=mt.scrollWidth/2||1;if(mktX<-half)mktX=0;mt.style.transform=`translateX(${mktX}px)`;}
+    if(specEls){const on=!audio.paused&&!audio.ended&&audio.currentTime>0;
+      for(let i=0;i<specEls.length;i++){const h=on?(3+Math.abs(Math.sin(t*7+i*0.7))*15*(0.4+Math.random()*0.6)):3;
+        specEls[i].style.height=h.toFixed(0)+'px';}}
+    renderer.render(scene,cam);}
+  animate();
+  addEventListener('resize',()=>{cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix();
+    renderer.setSize(innerWidth,innerHeight);});
+})();
+</script>
+</body>
+</html>
